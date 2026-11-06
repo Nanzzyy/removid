@@ -9,7 +9,7 @@ npx remotion render Hook out/scenes/01-hook.mp4 --props='{"headline":"..."}'
 ```
 
 - The composition's `fps={60}` decides the clip's fps (`render` has no `--fps` flag). A 30 fps clip in a 60 fps timeline looks stepped, so confirm with `probe-mp4.sh`.
-- Give each clip about 0.5 s of handle at head and tail beyond what the cut needs (the scene holds its first and last pose), so HyperFrames can trim without running out of picture.
+- Give each clip a handle at head and tail beyond what the cut needs (the scene holds its first and last pose). With `plan.json`, `clipRange()` in the starter (`src/lib/plan.ts`) gives the frames: the storyboard range ± 15 frames (0.25 s), clamped to the video, so neighbouring clips overlap by 0.5 s for the crossfade. Never type the frame count by hand.
 - Name clips `NN-name.mp4` in order. Keep the Remotion project and its props; the clip is a build output.
 - Probe: `scripts/probe-mp4.sh out/scenes/01-hook.mp4 1920x1080 60`.
 - Need a transparent overlay? Render with alpha (ProRes 4444 or VP8/VP9 WebM, with `--image-format=png`; exact flags in the Remotion "transparent videos" docs) and layer it as a clip.
@@ -40,7 +40,8 @@ Pick a moment where the picture changes (camera moving, cursor travelling). Meas
 
 ## Rules
 
-- Revision of one scene: re-render only that clip into the same filename, keep `data-start`/`data-duration`, re-run `check`. Other clips are untouched.
+- Revision of one scene: re-render only that clip into the same filename, keep `data-start`/`data-duration`, re-run `check`. Other clips are untouched, and you can prove it: the render is deterministic, so `ffmpeg -i old.mp4 -map 0:v -f framemd5 -` of a re-rendered untouched scene equals the old one (verified), and in the assembled video the PSNR of an untouched scene's frame between v1 and v2 is `inf`.
+- Scene clips carry no audio. The voice and the effects go in as `<audio>` in HyperFrames; the Remotion preview may use `<Audio>`.
 - If a revision changes a scene's length, update that clip's duration and shift later clips with `timeline move`, and raise the root `data-duration` first if needed.
 - Audio: music and extra voice go in a separate `<audio id=...>`. A narrator clip carries its own voice: keep `data-has-audio="true"` on it; mute the others.
 - Raw footage goes in the same way as a clip; cut it in HyperFrames. Cleanup of footage (grades, grain) goes through `npx hyperframes media-treatment`.

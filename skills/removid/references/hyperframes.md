@@ -17,7 +17,7 @@ Role here: clipping and assembly of already-rendered clips and raw footage. Not 
 - `index.html`: root composition mounting clips and audio.
 - `assets/scenes/`: Remotion clips. `assets/footage/`, `assets/audio/`, `assets/fonts/`.
 
-`npx hyperframes init <dir>` for a blank project. Root:
+`npx -y hyperframes@<version> init <dir> --example blank --non-interactive --skip-skills --skip-transcribe` for a blank project (`HYPERFRAMES_SKIP_SKILLS=1` also stops it installing skills). In a removid project, `project.mjs assemble <proj>` writes the root below from `Storyboard/plan.json`: clip `data-start`/`data-duration` from the frame ranges plus handles, the crossfade `fromTo` per later clip, the voice and sfx `<audio>`; and it checks with ffprobe that every clip in `Asset/scenes/NN-*.mp4` has the planned size, 60 fps and exact frame count. Root:
 
 ```html
 <div id="root" data-composition-id="main" data-start="0" data-duration="18" data-width="1920" data-height="1080">
@@ -45,12 +45,12 @@ Role here: clipping and assembly of already-rendered clips and raw footage. Not 
 npx hyperframes check --json                         # gate; fix every error
 npx hyperframes snapshot --at 1,5,9                  # read the PNGs under .hyperframes/artifacts/snapshots/
 npx hyperframes preview --background                 # give the user the URL, wait
-npx hyperframes render --fps 60 --quality draft --output sample.mp4
+npx hyperframes render --fps 60 --quality draft --start 0 --end 10 --output sample.mp4   # the 10 s sample; --start/--end need MP4 at 24/25/30/60 fps
 npx hyperframes render --fps 60 --quality delivery --output out.mp4
 ```
 
 - Existing project: `npx hyperframes timeline --json` shows what plays when. Edit: `timeline move|trim|split|set|duplicate|delete <ref> --plan --json`, then without `--plan`. Edits are refused on overlap (`--overwrite` or move the neighbour) or when ending past the composition.
-- After render: file non-empty, `ffprobe` duration equals root `data-duration`, `r_frame_rate` is `60/1`.
+- After render: file non-empty, `probe-mp4.sh` (with `FFMPEG=` a full build it also prints loudness: target -14 LUFS ± 2, true peak ≤ -1 dBFS), `ffprobe` duration equals root `data-duration`, `r_frame_rate` is `60/1`.
 - Variants: `--docker --strict` (reproducible), `--batch rows.json --output "renders/{name}.mp4"`.
 - Failures: `doctor --json` (gate on `.ok`), `browser ensure` if Chrome is missing, raise `--timeout` for heavy pages.
 - **Minimal ffmpeg breaks the render.** Verified: with a minimal ffmpeg on PATH, `render` fails at "Extracting video frames" with `VIDEO_SOURCE_UNRENDERABLE ... ffmpeg_failed` (the build lacks `setparams` and the frame-image muxer). Fix: `export HYPERFRAMES_FFMPEG_PATH=/path/to/full/ffmpeg`, then render again. `scripts/doctor.sh` warns about it. (`npx hyperframes check` passes either way; only the render needs ffmpeg.)
@@ -62,4 +62,4 @@ Tested end to end: two Remotion clips (a narrator clip with voice, then a UI-dem
 
 ## Transitions between clips
 
-Overlap two clips by 0.3-0.5 s and animate a wrapper's opacity or x/y with GSAP (`power2.inOut`). Search `npx hyperframes catalog --query "<transition>" --json` before hand-writing a named transition. Scenes themselves stay in Remotion.
+Overlap two clips by 0.3-0.5 s and animate a wrapper's opacity or x/y with GSAP (`power2.inOut`). A crossfade between two clips that both carry text at the same place shows the two layouts on top of each other for the whole overlap. Make the scene's CONTENT leave before the cut (`exitAlpha` in the starter fades it in the last 0.25 s of its range) so the overlap only blends the background and the identical narrator. Search `npx hyperframes catalog --query "<transition>" --json` before hand-writing a named transition. Scenes themselves stay in Remotion.

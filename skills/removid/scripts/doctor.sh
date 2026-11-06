@@ -21,7 +21,7 @@ if command -v ffmpeg >/dev/null 2>&1 && ! ffmpeg -hide_banner -filters 2>/dev/nu
     echo "  ok    HYPERFRAMES_FFMPEG_PATH points to a full ffmpeg (PATH ffmpeg is a minimal build)"
   else
     echo "  WARN  ffmpeg on PATH is a minimal build (no setparams filter). HyperFrames renders FAIL with it"
-    echo "        (VIDEO_SOURCE_UNRENDERABLE). export HYPERFRAMES_FFMPEG_PATH=/path/to/full/ffmpeg"
+    echo "        (VIDEO_SOURCE_UNRENDERABLE), and sfx.mjs / loudness checks need the same. export HYPERFRAMES_FFMPEG_PATH=/path/to/full/ffmpeg"
     warn=$((warn+1))
   fi
 fi

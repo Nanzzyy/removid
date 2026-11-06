@@ -44,7 +44,7 @@ export const UiDemo: React.FC<{debug: boolean}> = ({debug}) => {
         {/* header */}
         <div style={{position: 'absolute', left: 0, top: 0, width, height: 110, background: '#FFFFFF', borderBottom: '2px solid #E8E4D8'}} />
         <div style={{position: 'absolute', left: 80, top: 28, fontSize: 44, fontWeight: 700}}>
-          <span style={{color: CORAL}}>✺</span> Studio Shop
+          <span style={{display: 'inline-block', width: 34, height: 34, borderRadius: 9, background: CORAL, verticalAlign: -4, marginRight: 14}} /> Studio Shop
         </div>
         <TargetBox rect={T.cart} debug={debug} scale={cartClick && t >= cartClick ? targetPress(t, cartClick) : 1} style={{display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52}}>
           <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -83,7 +83,13 @@ export const UiDemo: React.FC<{debug: boolean}> = ({debug}) => {
         </TargetBox>
 
         {/* product */}
-        <div style={{...rectStyle(CARD), borderRadius: 40, background: `linear-gradient(145deg, ${CORAL}, #B9573A)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 280, color: CREAM}}>✺</div>
+        <div style={{...rectStyle(CARD), borderRadius: 40, background: `linear-gradient(145deg, ${CORAL}, #B9573A)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 280, color: CREAM}}>
+          <svg width="260" height="260" viewBox="0 0 24 24" fill="none" stroke={CREAM} strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 8h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z" />
+            <path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16" />
+            <path d="M8 4.5c0 1 1 1 1 2M12 4.5c0 1 1 1 1 2" />
+          </svg>
+        </div>
         <div style={{...rectStyle(TITLE), fontSize: 64, fontWeight: 700, lineHeight: 1.1}}>Ceramic mug,<br />hand glazed</div>
         <div style={{...rectStyle(PRICE), fontSize: 56, fontWeight: 600, color: '#5E5A50'}}>$24.00 · in stock</div>
         <TargetBox rect={T.buy} debug={debug} scale={targetPress(t, buyClick)} style={{background: added ? '#2F7D57' : CORAL, color: '#fff', borderRadius: 52, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, fontWeight: 700}}>

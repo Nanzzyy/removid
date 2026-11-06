@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Assert a rendered video. Usage: probe-mp4.sh out.mp4 [WxH] [fps] [seconds]
-# Prints a summary; exits 1 on any mismatch so it can gate delivery.
+# Prints a summary; exits 1 on any mismatch so it can gate delivery. For a video with audio it also prints the integrated loudness
+# (target -14 LUFS +-2, true peak <= -1 dBFS) as FAIL/warn lines when ffmpeg has the ebur128 filter (FFMPEG=/path/to/full/ffmpeg).
 set -u
 f="${1:-}"; want_size="${2:-}"; want_fps="${3:-}"; want_dur="${4:-}"
 [ -n "$f" ] || { echo "usage: $0 file.mp4 [WxH] [fps] [seconds]"; exit 2; }
@@ -24,5 +25,17 @@ close() { awk -v a="$1" -v b="$2" -v t="$3" 'BEGIN{d=a-b; if(d<0)d=-d; exit !(d<
 [ -z "$want_fps" ]  || close "$fps" "$want_fps" 0.05 || fail "fps is $fps, want $want_fps"
 [ -z "$want_dur" ]  || close "$dur" "$want_dur" 0.2  || fail "duration is ${dur}s, want ~${want_dur}s"
 
+if [ -n "${audio:-}" ]; then
+  ff="${FFMPEG:-${REMOVID_FFMPEG:-${HYPERFRAMES_FFMPEG_PATH:-ffmpeg}}}"
+  if "$ff" -hide_banner -filters 2>/dev/null | grep -q ' ebur128 '; then
+    m=$("$ff" -hide_banner -nostats -i "$f" -vn -af ebur128=peak=true -f null - 2>&1 | awk '/^ +I:/{i=$2} /^ +Peak:/{p=$2} END{print i, p}')
+    lufs=${m% *}; peak=${m#* }
+    echo "loudness: ${lufs} LUFS  true peak: ${peak} dBFS"
+    close "$lufs" "-14" 2 || echo "warn: loudness ${lufs} LUFS is outside -14 +-2 (mix the voice/music levels again)"
+    awk -v p="$peak" 'BEGIN{exit !(p>-1)}' && fail "true peak ${peak} dBFS is above -1 (clipping risk)"
+  else
+    echo "loudness: not measured (this ffmpeg lacks ebur128; set FFMPEG to a full build)"
+  fi
+fi
 [ "$rc" -eq 0 ] && echo "OK"
 exit "$rc"
