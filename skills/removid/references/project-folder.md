@@ -48,7 +48,10 @@ submit script|storyboard <proj>   check, snapshot, hash, wait for the user
 approve <gate> <proj> --evidence "user's words"
 gate voice|storyboard|build|sample|full|deliver <proj>
 vo <proj> <audio> [--min-gap S]  measure the real voice and map it to the script lines (finds the gap that gives one run per line)
-vo-place <proj> [--lead 0.1]      build vo.wav from Asset/agen/line1..N.* placed at each script window, then measure it
+vo-place <proj> [--lead 0.1] [--fit] [--lufs -15]
+                                  build vo.wav from Asset/agen/line1..N.* placed at each script window and measure it. Reports every line that does not fit
+                                  its window; --fit reschedules the lines (the approved script stays untouched); --lufs levels each line, writes the track
+                                  as dual-mono stereo and measures it the way the video carries it
 scaffold <proj>                   copy the Remotion starter into Source/remotion (after Gate 2)
 assemble <proj> [--handle 15] [--force]  write Source/hyperframes/index.html from plan.json; verifies every clip (size, 60 fps, exact frame count)
 log <proj> "note"

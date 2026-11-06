@@ -9,7 +9,7 @@
 //   node project.mjs approve script|storyboard|sample|final <project> --evidence "user's words"
 //   node project.mjs gate voice|storyboard|build|sample|full|deliver <project>
 //   node project.mjs vo <project> <audio> [--min-gap S]
-//   node project.mjs vo-place <project> [--lead 0.1]   build Asset/agen/vo.wav from Asset/agen/line1..N.* placed at each script window, then measure it
+//   node project.mjs vo-place <project> [--lead 0.1] [--fit] [--lufs -15]   build Asset/agen/vo.wav from Asset/agen/line1..N.* placed at each script window, then measure it
 //   node project.mjs set-character <project> <id>|none   record which character narrates (id from src/characters, none = voice only)
 //   node project.mjs scaffold <project> [--preview]   copy the Remotion starter into Source/remotion (needs the storyboard ACC; --preview = only to design the character)
 //   node project.mjs assemble <project> [--handle 15] [--force]   write Source/hyperframes/index.html from plan.json and the clips in Asset/scenes
@@ -132,7 +132,8 @@ function parseScript(text) {
   }
   return {meta: data, blocks, claims};
 }
-const CLAIM_RE = /(\d+(?:[.,]\d+)?\s*%|\d+|\bpuluhan\b|\bratusan\b|\bribuan\b|\bjutaan\b|\bterbaik\b|\bnomor\s*1\b|\bgaransi\b|\bdijamin\b|\bterpercaya\b|\bdipercaya\b|\bterbukti\b|\bgratis\b|\bdiskon\b|\bpromo\b|\bbest\b|\bleading\b|\bguarantee[d]?\b|\btrusted\b|\bfree\b)/gi;
+const NUMBER_WORDS = 'satu|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh|sebelas|belas|puluh|ratus|ribu|juta|miliar|triliun|seratus|seribu|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|million|billion';
+const CLAIM_RE = new RegExp('(\\d+(?:[.,]\\d+)?\\s*%|\\d+|\\b(?:' + NUMBER_WORDS + ')\\b|' + String.raw`\bpuluhan\b|\bratusan\b|\bribuan\b|\bjutaan\b|\bterbaik\b|\bnomor\s*1\b|\bgaransi\b|\bdijamin\b|\bterpercaya\b|\bdipercaya\b|\bterbukti\b|\bgratis\b|\bdiskon\b|\bpromo\b|\bbest\b|\bleading\b|\bguarantee[d]?\b|\btrusted\b|\bfree\b` + ')', 'gi');
 const DOMAIN_RE = /\b[a-z0-9-]+\.(?:id|com|site|io|co|net|app|dev|org|ai)\b/gi;
 const CTA_RE = /\b(kunjungi|daftar|hubungi|coba|klik|unduh|download|ikuti|follow|mulai|pesan|beli|chat|dm|visit|try|start|join|sign up|call|get)\b/i;
 const SFX_KINDS = ['click', 'tick', 'whoosh', 'impact', 'chime'];
@@ -228,6 +229,20 @@ function measureVoice(proj, audio, minGap) {
   fs.mkdirSync(P(proj, 'Asset', 'agen'), {recursive: true});
   fs.writeFileSync(P(proj, 'Asset', 'agen', 'vo-report.json'), JSON.stringify(report, null, 1) + '\n');
   return {report, script};
+}
+
+// Speech-only span of one audio file: where the first word starts and the last one ends (silence trimmed).
+function speechSpan(file) {
+  const sd = spawnSync(ffbin('ffmpeg'), ['-hide_banner', '-nostats', '-i', file, '-af', 'silencedetect=noise=-35dB:d=0.1', '-f', 'null', '-'], {encoding: 'utf8'});
+  const log = sd.stderr || ''; if (sd.status !== 0) die(`ffmpeg silencedetect failed on ${file} (a minimal ffmpeg may lack the filter; set REMOVID_FFMPEG)`);
+  const pr = spawnSync(ffbin('ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], {encoding: 'utf8'}); const total = parseFloat((pr.stdout || '').trim());
+  const sil = []; let st = null;
+  for (const l of log.split('\n')) { let m; if ((m = l.match(/silence_start: (-?[\d.]+)/))) st = Math.max(0, parseFloat(m[1])); else if ((m = l.match(/silence_end: ([\d.]+)/)) && st !== null) { sil.push([st, parseFloat(m[1])]); st = null; } }
+  if (st !== null) sil.push([st, total]);
+  let a = 0, b = total;
+  if (sil.length && sil[0][0] < 0.02) a = sil[0][1];
+  if (sil.length && sil.at(-1)[1] >= total - 0.02) b = sil.at(-1)[0];
+  return {s: a, e: Math.max(a, b), total};
 }
 
 // ---------- storyboard ----------
@@ -445,9 +460,9 @@ function writePlan(proj, r, data) {
   fs.writeFileSync(P(proj, 'Storyboard', 'plan.json'), JSON.stringify({fps: r.meta.fps, size: data.size, totalSec: r.meta.total, totalFrames: Math.round(r.meta.total * r.meta.fps), hash: hashStoryboard(proj, narrated(data)), sfx: r.sfx, frames: r.plan}, null, 1) + '\n');
 }
 
-function printVoice(proj, audio, minGap) {
-  const {report, script} = measureVoice(proj, audio, minGap);
-  out(`audio ${f2(report.duration)} s, ${report.segments.length} speech segment(s), ${script.length} script line(s): ${report.mapped ? 'mapped in order' : 'NOT mapped'} (runs closer than ${report.minGap} s merged)`);
+function printVoice(proj, audio, minGap, pre) {
+  const {report, script} = pre || measureVoice(proj, audio, minGap);
+  out(`audio ${f2(report.duration)} s, ${report.segments.length} speech segment(s), ${script.length} script line(s): ${report.mapped ? 'mapped in order' : 'NOT mapped'} ${report.minGap ? `(runs closer than ${report.minGap} s merged)` : '(exact: taken from the schedule of the placed lines)'}`);
   report.segments.forEach((s, i) => out(`  ${i + 1}. ${f2(s.start)}–${f2(s.end)}  (${f2(s.end - s.start)} s)${script[i] && report.mapped ? `  ${countWords(script[i].text)} words, ${f2(countWords(script[i].text) / (s.end - s.start))} words/s` : ''}`));
   if (!report.mapped) out('\nno gap setting gives one speech run per script line. Re-record with clear pauses between lines, or set --min-gap to try one value.');
   else { const tw = script.reduce((a, b) => a + countWords(b.text), 0), sp = report.segments.reduce((a, s) => a + (s.end - s.start), 0); out(`\nmeasured pace ${f2(tw / sp)} words/s (script assumed ${DEFAULT_WPS}; put the measured value in SCRIPT.md wps so the next script is checked against it). Write the storyboard vo windows from these times with ~0.1 s of margin.`); }
@@ -552,15 +567,40 @@ const COMMANDS = {
     const why = gate(proj, 'voice'); if (why.length) die('blocked: ' + why.join('; '));
     const sc = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))); const blocks = sc.blocks.filter((b) => b.text);
     const lead = opt.lead === undefined ? 0.1 : num(opt.lead); const dur = num(sc.meta.duration) || num(data.target_duration);
+    const GAP = 0.35, TAIL = 0.5;
     const dir = P(proj, 'Asset', 'agen'); const files = [], missing = [];
     blocks.forEach((b, i) => { const f = fs.existsSync(dir) && fs.readdirSync(dir).find((x) => new RegExp(`^line${i + 1}\\.(mp3|wav|m4a|ogg|opus|flac)$`, 'i').test(x)); if (f) files.push(path.join(dir, f)); else missing.push(`line${i + 1}.* (${blocks[i].label}: "${blocks[i].text.slice(0, 40)}")`); });
     if (missing.length) die(`missing per-line audio in Asset/agen/:\n  ${missing.join('\n  ')}\nSynthesize or record one file per script block (text in Asset/agen/vo.txt, one line per block).`);
-    const chains = blocks.map((b, i) => `[${i}:a]aformat=sample_rates=48000:channel_layouts=mono,adelay=${Math.round((b.start + lead) * 1000)}:all=1[a${i}]`);
-    const mix = `${blocks.map((_, i) => `[a${i}]`).join('')}amix=inputs=${blocks.length}:normalize=0,apad=whole_dur=${dur},atrim=0:${dur}[o]`;
-    const out = P(dir, 'vo.wav'); const r = spawnSync(ffbin('ffmpeg'), ['-hide_banner', '-loglevel', 'error', '-y', ...files.flatMap((f) => ['-i', f]), '-filter_complex', [...chains, mix].join(';'), '-map', '[o]', '-ar', '48000', '-ac', '1', out], {encoding: 'utf8'});
+    // when does each line's SPEECH want to start, and how long does it really take?
+    const spans = files.map(speechSpan); const durs = spans.map((x) => x.e - x.s);
+    let start = blocks.map((b, i) => Math.max(b.start + lead, spans[i].s)); // a file's own leading silence cannot be removed by a negative delay
+    const overflow = blocks.map((b, i) => start[i] + durs[i] - b.end).map((d, i) => ({i, d})).filter((x) => x.d > 0.02);
+    if (opt.fit) { // push lines apart from the front, then pull the tail back so the last word ends TAIL s before the end
+      for (let i = 1; i < start.length; i++) start[i] = Math.max(start[i], start[i - 1] + durs[i - 1] + GAP);
+      let limit = dur - TAIL;
+      for (let i = start.length - 1; i >= 0; i--) { start[i] = Math.min(start[i], limit - durs[i]); limit = start[i] - GAP; }
+      if (start[0] < 0.05 || start.some((x, i) => i && x < start[i - 1] + durs[i - 1] + GAP - 1e-6)) die(`the lines cannot be fitted into ${dur} s: speech takes ${f2(durs.reduce((a, b) => a + b, 0))} s plus gaps. Shorten the script or speed up the voice.`);
+    }
+    out('  #  window            speech  starts  ends    fits its window');
+    blocks.forEach((b, i) => out(`  ${i + 1}  ${f2(b.start).padStart(5)}–${f2(b.end).padEnd(6)}  ${f2(durs[i]).padStart(6)}  ${f2(start[i]).padStart(6)}  ${f2(start[i] + durs[i]).padStart(6)}  ${start[i] + durs[i] <= b.end + 0.02 && start[i] >= b.start - 0.02 ? 'yes' : 'no (outside its script window; the storyboard windows follow the audio)'}`));
+    if (overflow.length && !opt.fit) die(`\n${overflow.length} line(s) do not fit their script window: ${overflow.map((x) => `line ${x.i + 1} by ${f2(x.d)} s`).join(', ')}. Run with --fit to reschedule the lines (the approved script stays untouched), or shorten them.`);
+    // TTS lines differ in level; level each line to the target so the voice is even from line to line.
+    // Measured the way the video carries it: the voice copied unattenuated to left and right (a mono file reads 3 dB louder that way).
+    const lufsOf = (f) => { const m = spawnSync(ffbin('ffmpeg'), ['-hide_banner', '-nostats', '-i', f, '-af', 'pan=stereo|c0=c0|c1=c0,ebur128', '-f', 'null', '-'], {encoding: 'utf8'}); const x = ((m.stderr || '').match(/\n\s+I:\s+(-?[\d.]+) LUFS/g) || []).pop(); return x ? parseFloat(x.match(/-?[\d.]+/)[0]) : null; };
+    const target = opt.lufs && opt.lufs !== true ? num(opt.lufs) : null;
+    const gains = files.map((f) => { if (target === null) return 0; const l = lufsOf(f); if (l === null || !isFinite(l)) die('cannot measure loudness (a minimal ffmpeg lacks ebur128; set REMOVID_FFMPEG to a full build)'); return target - l; });
+    if (target !== null) out(`  levelling each line to ${target} LUFS: ${gains.map((g) => (g >= 0 ? '+' : '') + g.toFixed(1)).join(', ')} dB`);
+    const chains = blocks.map((b, i) => `[${i}:a]volume=${gains[i].toFixed(2)}dB,aformat=sample_rates=48000:channel_layouts=mono,adelay=${Math.max(0, Math.round((start[i] - spans[i].s) * 1000))}:all=1[a${i}]`);
+    const mix = `${blocks.map((_, i) => `[a${i}]`).join('')}amix=inputs=${blocks.length}:normalize=0,apad=whole_dur=${dur},atrim=0:${dur},pan=stereo|c0=c0|c1=c0${target !== null ? ',alimiter=limit=0.84:level=disabled' : ''}[o]`;
+    const outFile = P(dir, 'vo.wav'); const r = spawnSync(ffbin('ffmpeg'), ['-hide_banner', '-loglevel', 'error', '-y', ...files.flatMap((f) => ['-i', f]), '-filter_complex', [...chains, mix].join(';'), '-map', '[o]', '-ar', '48000', '-ac', '2', outFile], {encoding: 'utf8'});
     if (r.status !== 0) die('ffmpeg failed:\n' + (r.stderr || '').split('\n').slice(-5).join('\n'));
-    out_(`placed ${blocks.length} lines at their script windows (+${lead} s) -> Asset/agen/vo.wav (${dur} s)`);
-    printVoice(proj, out, num(opt['min-gap']) || 0);
+    if (target !== null) out(`  voice track now ${lufsOf(outFile)} LUFS`);
+    out(`\nplaced ${blocks.length} lines${opt.fit ? ' (fitted)' : ` at their script windows (+${lead} s)`} -> Asset/agen/vo.wav (${dur} s)`);
+    if (opt.fit) logLine(proj, `voice lines rescheduled with --fit (gap ${GAP} s, tail ${TAIL} s); script windows unchanged`);
+    // The schedule is exact, so the report comes from it; re-detecting silence would split a line at its inner pause.
+    const report = {source: 'vo-place', duration: dur, mapped: true, minGap: 0, segments: blocks.map((b, i) => ({text: b.text, start: +start[i].toFixed(3), end: +(start[i] + durs[i]).toFixed(3)}))};
+    fs.writeFileSync(P(dir, 'vo-report.json'), JSON.stringify(report, null, 1) + '\n');
+    printVoice(proj, outFile, 0, {report, script: blocks});
   },
   scaffold(pos, opt) {
     const proj = findProject(pos[0], opt); const dest = P(proj, 'Source', 'remotion'); fs.mkdirSync(dest, {recursive: true});

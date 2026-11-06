@@ -30,7 +30,8 @@ export function useEnvelope(file: string | null): Envelope {
  * `glow`: the ground shadow colour; a dark `rgba(31,30,29,0.22)` on a light background, a tinted glow on a dark one.
  */
 export const NarratorLayer: React.FC<{pose: Pose; box: Rect; character?: string; groundY?: number; glow?: string}> = ({pose, box, character = DEFAULT_CHARACTER, groundY, glow = 'rgba(31,30,29,0.22)'}) => {
-  const gy = groundY ?? getCharacter(character).groundY;
+  // groundY is measured on a 1080 px tall canvas; scale it to this box and place it on the screen
+  const gy = groundY ?? box.y + getCharacter(character).groundY * (box.h / 1080);
   return (
     <>
       <div style={{position: 'absolute', left: box.x + box.w / 2 - 160, top: gy - 28, width: 320, height: 56, borderRadius: '50%', background: `radial-gradient(closest-side, ${glow}, rgba(0,0,0,0))`}} />

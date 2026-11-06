@@ -25,6 +25,8 @@ export type ArmPose = {
 };
 
 export type Pose = {
+  /** Seconds. Lets a character animate a prop (a flame) as a pure function of time. */
+  time: number;
   talk: number; // mouth opening 0..1
   blink: number; // 0 open .. 1 closed
   breathe: number; // -1..1
@@ -81,6 +83,7 @@ export function narratorPose(t: number, talk: number, cues: Cue[], look: Point |
   // Eyes follow the first pointing/presenting target while it is active, else the given look point.
   const active = cues.find((c) => c.target && windowed(t, c.start, c.dur) > 0);
   return {
+    time: t,
     talk: clamp(talk, 0, 1),
     blink: blinkAt(t),
     breathe: Math.sin(t * Math.PI * 2 * 0.28),

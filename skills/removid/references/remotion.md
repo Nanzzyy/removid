@@ -22,6 +22,7 @@ import {clipRange} from './lib/plan.ts';
     durationInFrames={c.durationInFrames} defaultProps={{n: f.id, startFrame: c.from, debug: false}} schema={schema} />; })}
 ```
 
+- **Drive the scene from `plan.json`**: take on-screen texts (`frame.text`), narrator cues (`frame.narrator`) and voice windows (`frame.vo`) straight from the approved storyboard instead of retyping them; the scene's data file then holds only what the storyboard says in words (which actor, colours, where things stand). Storyboard and video cannot drift.
 - **Scene time is global**: `t = (startFrame + frame) / fps`. The seconds in `*.data.ts` are the storyboard's seconds, so storyboard and code carry the same numbers, and a pose that is a function of `t` continues across clips.
 - Content leaves in its last 0.25 s (`exitAlpha`), the narrator and the background do not (`hyperframes.md`, transitions).
 - Kinetic text follows the voice: `revealTimes(words, vo.start, vo.end)` spreads word appearances over the storyboard's vo window in proportion to word length (words that all appear in the first half of their line read as out of sync).

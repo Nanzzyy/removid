@@ -64,6 +64,7 @@ test('script mutants are rejected', () => {
   const m = (from, to, re) => { const d = project(); edit(SC(d), from, to); const r = run('check', 'script', d); assert.equal(r.code, 1, `${from} -> ${to}\n${r.out}`); assert.match(r.out, re); };
   m('UMKM kamu sudah punya website?', 'UMKM kamu sudah punya website sendiri belum atau masih pakai cara lama?', /HOOK: needs/);
   m('[03.0–08.0] PROBLEM', '[02.0–08.0] PROBLEM', /overlaps the previous block/);
+  m('Tampil rapi di mata pelanggan.', 'Tampil rapi untuk tiga juta pelanggan.', /"juta" is a claim/); // numbers spelled out count as claims too
   m('Tampil rapi di mata pelanggan.', 'TODO', /placeholder or empty/);
   m('| gratis | owner-confirmed |', '| terbaik | owner-confirmed |', /"gratis" is a claim/);
   m('| prvtech.id | placeholder |', '| prvtech.id | guessed |', /status must be one of/);
@@ -276,4 +277,27 @@ test('vo-place puts each line at its script window and the measurement agrees', 
   rep.segments.forEach((s, i) => { assert.ok(Math.abs(s.start - (starts[i] + 0.2)) < 0.06, `line ${i + 1} starts ${s.start}`); assert.ok(Math.abs(s.end - s.start - spans[i]) < 0.08, `line ${i + 1} length ${s.end - s.start}`); });
   assert.ok(Math.abs(rep.duration - 30) < 0.05);
   assert.equal(run('vo-place', project(), '--lead', '0.2').code, 1, 'blocked before the script is approved');
+});
+test('vo-place refuses a line that does not fit its window; --fit reschedules without touching the script', { skip: !hasFfmpeg && 'ffmpeg not installed' }, () => {
+  const d = project(); run('submit', 'script', d); run('approve', 'script', d, '--evidence', 'ya oke');
+  const before = fs.readFileSync(SC(d), 'utf8');
+  const spans = [2.0, 3.5, 4.5, 5.0, 2.0, 4.6]; // the last line needs 4.6 s but its window (25 to 30) minus the lead leaves 4.9 s; make line 5 long enough to push it
+  spans[4] = 4.4; // line 5: window 21..25 -> 4.0 s, overflows by about 0.5 s
+  spans.forEach((len, i) => spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `sine=f=300:d=${len}:r=24000`, path.join(d, `Asset/agen/line${i + 1}.wav`)]));
+  const r = run('vo-place', d); assert.equal(r.code, 1, r.out); assert.match(r.out, /do not fit their script window: line 5 by 0\.\d\d s/); assert.match(r.out, /--fit/);
+  const f = run('vo-place', d, '--fit'); assert.equal(f.code, 0, f.out); assert.match(f.out, /placed 6 lines \(fitted\)/);
+  const rep = JSON.parse(fs.readFileSync(path.join(d, 'Asset/agen/vo-report.json'), 'utf8'));
+  const gaps = rep.segments.slice(1).map((s, i) => s.start - rep.segments[i].end); gaps.forEach((g) => assert.ok(g >= 0.3, `gap ${g}`));
+  assert.ok(rep.segments.at(-1).end <= 30 - 0.4, `the last word ends at ${rep.segments.at(-1).end}`);
+  assert.equal(fs.readFileSync(SC(d), 'utf8'), before, 'the approved script is untouched'); assert.match(run('status', d).out, /gate script\s+approved/);
+  const spans2 = [5.2, 5.2, 5.2, 5.2, 5.2, 5.2]; spans2.forEach((len, i) => spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `sine=f=300:d=${len}:r=24000`, path.join(d, `Asset/agen/line${i + 1}.wav`)]));
+  const bad = run('vo-place', d, '--fit'); assert.equal(bad.code, 1); assert.match(bad.out, /cannot be fitted into 30 s/);
+});
+
+test('vo-place --lufs levels the voice track', { skip: !fullFfmpeg && 'needs a full ffmpeg build (loudnorm)' }, () => {
+  const d = project(); run('submit', 'script', d); run('approve', 'script', d, '--evidence', 'ya oke');
+  [2.0, 3.5, 4.5, 5.0, 2.0, 3.0].forEach((len, i) => spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `sine=f=300:d=${len}:r=24000`, '-af', `volume=${-34 + i * 4}dB`, path.join(d, `Asset/agen/line${i + 1}.wav`)])); // six lines, 20 dB apart in level
+  const r = run('vo-place', d, '--lufs', '-15'); assert.equal(r.code, 0, r.out); assert.match(r.out, /levelling each line to -15 LUFS/);
+  const m = spawnSync(FFMPEG, ['-hide_banner', '-nostats', '-i', path.join(d, 'Asset/agen/vo.wav'), '-af', 'ebur128', '-f', 'null', '-'], {encoding: 'utf8'});
+  const lufs = parseFloat((m.stderr.match(/\n\s+I:\s+(-?[\d.]+) LUFS/g) || []).pop().match(/-?[\d.]+/)[0]); assert.ok(Math.abs(lufs + 15) < 1.2, /* 2 s synthetic lines carry about 1 dB of edge error in the loudness measure */ `integrated ${lufs} LUFS`);
 });

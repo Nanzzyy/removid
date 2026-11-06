@@ -46,7 +46,7 @@ No narration means no character and no script gate (on-screen copy still goes in
 | Cutting, trimming, assembling, raw footage, music | `references/hyperframes.md`, `references/handoff.md` |
 | Easing, durations, stagger, framing, beat sync | `references/motion-design.md` |
 
-Existing project: run `scripts/project.mjs status <name or path>` and read its `PROJECT.md` first; it is the truth, not the chat. `$ARGUMENTS` = `doctor` runs `scripts/doctor.sh` and stops; `new <Brand> <slug>` runs the first workflow step.
+Existing project: run `scripts/project.mjs status <name or path>` and read its `PROJECT.md` first; it is the truth, not the chat. If the user's argument is just the word `doctor`, run `scripts/doctor.sh`, report and stop; if it starts with `new`, run the first workflow step with the brand and slug that follow. Anything else is the brief for a new video.
 
 ## Workflow: a gate is a hard stop, and `scripts/project.mjs` enforces it
 
