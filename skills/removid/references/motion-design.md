@@ -28,6 +28,14 @@ Believable motion runs three layers: **Hero** (the move the eye follows), **Supp
 
 Add ~30-50% when distance or area doubles. Heavy objects start slowly and overshoot less.
 
+## 60 fps
+
+- Motion is continuous in time (seconds or beats), never stepped. No `steps()` for movement, no forcing a lower ticker rate, no integer-rounded per-frame positions.
+- Minimum durations: micro-actions at least 0.12 s (7 frames), morphs 0.4-0.5 s, zooms 0.6-0.9 s. Under 3 frames reads as a flicker.
+- Plan in seconds; a hard-coded frame count halves in time if fps changes.
+- Cursor: no more than about 35 px per frame (about 2100 px/s) unless deliberately a flash. Camera, cursor and click rules: `cursor-and-camera.md`.
+- Check by watching the clip at 60 fps, not only contact sheets.
+
 ## Stagger and rhythm
 
 - Lists: 40-80 ms between items. Dense grids: 20-40 ms. Cap a group reveal near 0.6-0.8 s.

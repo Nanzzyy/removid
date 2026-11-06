@@ -1,59 +1,65 @@
-# HyperFrames (HTML + GSAP rendered by seeking a paused timeline)
+# HyperFrames: cut and assemble
 
-Renders HTML to video by seeking a paused timeline frame by frame, so every render is identical. The person can keep editing the same files in the Studio preview. Needs Node.js 22+ and FFmpeg. Run `npx hyperframes <command>`; every command has `--help`, most take `--json`.
+Role here: clipping and assembly of already-rendered clips and raw footage. Not for building scenes. Needs Node.js 22+ and FFmpeg. Run `npx hyperframes <command>`; every command has `--help`, most take `--json`.
+
+**Default fps is 30. Always render with `--fps 60`.**
+
+## What it does in this workflow
+
+- Trim and split clips (`data-media-start`, `timeline trim|split`).
+- Order, overlap and move clips on the timeline (`timeline move`, `apply`).
+- Align cuts to music (`npx hyperframes beats`), mix music and voice, normalise (`normalize-audio`).
+- Simple transitions and overlays between clips (opacity/translate on a wrapper).
+- Check, snapshot, preview, final render.
 
 ## Project shape
 
-- `index.html`: root composition. Declares variables, mounts one scene per sub-composition.
-- `compositions/*.html`: scenes. Everything lives inside `<template>`; style the root as `#root`.
-- `assets/`: media, `assets/fonts/` for custom fonts.
+- `index.html`: root composition mounting clips and audio.
+- `assets/scenes/`: Remotion clips. `assets/footage/`, `assets/audio/`, `assets/fonts/`.
 
-New project: `npx hyperframes init <dir>`. Website as subject: `npx hyperframes capture <url> --json`. Before hand-writing a named effect, transition, caption style, chart or card: `npx hyperframes catalog --query "<what>" --json`, then `add`.
+`npx hyperframes init <dir>` for a blank project. Root:
 
 ```html
-<div id="root" data-composition-id="main" data-start="0" data-duration="12" data-width="1920" data-height="1080">
-  <div id="intro" data-composition-id="intro" data-composition-src="compositions/intro.html"
-       data-start="0" data-duration="4" data-track-index="1" data-width="1920" data-height="1080"></div>
+<div id="root" data-composition-id="main" data-start="0" data-duration="18" data-width="1920" data-height="1080">
+  <video id="s01" class="clip" src="assets/scenes/01-hook.mp4" data-start="0" data-duration="4" data-media-start="0.5" data-track-index="0" muted></video>
+  <video id="s02" class="clip" src="assets/scenes/02-demo.mp4" data-start="3.6" data-duration="6" data-media-start="0.5" data-track-index="1" muted></video>
+  <audio id="bed" src="assets/audio/track.mp3" data-start="0" data-duration="18" data-track-index="9"></audio>
 </div>
-<script>window.__timelines["main"] = gsap.timeline({paused: true});</script>
+<script>window.__timelines = window.__timelines || {}; window.__timelines["main"] = gsap.timeline({paused: true});</script>
 ```
 
-## Contract (what `check` enforces)
+## Contract (enforced by `check`)
 
-1. Every timed element has `class="clip"`, `data-start`, `data-duration` (seconds); visible over `[start, start+duration)`. Land the end state just before the end. `data-track-index` is a Studio lane only; paint order is `z-index`.
+1. Timed elements: `class="clip"`, `data-start`, `data-duration` in seconds. `data-track-index` is only a Studio lane; paint order is `z-index`.
 2. Video length = root `data-duration`. Overrun is cut; early end holds the last frame.
-3. Each composition builds ONE paused timeline and registers it after its tweens: `window.__timelines["<data-composition-id>"] = tl`.
+3. Each composition registers one paused timeline: `window.__timelines["<data-composition-id>"] = tl`.
 4. No `Date.now()`, unseeded `Math.random()`, network fetches, timers, `repeat: -1`.
-5. Never tween `display`, `visibility` or `autoAlpha` on a `.clip`; animate a child.
-6. No CSS `transform` on an element GSAP also transforms. Animate transforms, not `left/top/width/height`.
-7. Never `play()`/`pause()`/seek media. `<video>` keeps sound with `data-has-audio="true"`, else `muted`. Music/voice is a separate `<audio>` with an `id`. No `crossorigin` on media. Time a `<video>` or its wrapper, never both.
-8. Only bundled fonts resolve by name; others need `@font-face` to `assets/fonts/`.
-9. Asset paths: `assets/...`, no leading `/`, in sub-compositions too.
-10. Grades, grain, blur, vignette on footage go through `npx hyperframes media-treatment`, not CSS filters.
-11. Intended overflow/overlap: `data-layout-allow-overflow`, `data-layout-allow-overlap`.
-
-## Keep it editable
-
-One scene per sub-composition; timed elements written in HTML with stable `id`s (not created by script); copy, colours and swappable media as variables (`data-composition-variables`, `data-var-text`, `data-var-src`, `var(--id)`); one kind per track (`data-track-kind="graphics"`, `captions`).
+5. Never `play()`/`pause()`/seek media. A `<video>` keeps sound with `data-has-audio="true"`, else `muted`. Every `<audio>` has an `id`. No `crossorigin` on media. Time the `<video>` or its wrapper, never both.
+6. Never tween `display`/`visibility`/`autoAlpha` on a `.clip`; animate a wrapper or child. No CSS `transform` on an element GSAP also transforms.
+7. Asset paths `assets/...`, no leading `/`.
+8. Grades, grain, blur on footage: `npx hyperframes media-treatment`, not CSS filters.
 
 ## Loop
 
 ```bash
-npx hyperframes lint                       # while writing
-npx hyperframes check --json               # gate: lint, runtime, layout, contrast
-npx hyperframes snapshot --at 1,5,9        # PNGs in .hyperframes/artifacts/snapshots/ ; read them
-npx hyperframes preview --background       # give the user the URL, wait for approval
-npx hyperframes render --quality draft --output sample.mp4     # iterate
-npx hyperframes render --quality delivery --output out.mp4     # final
+npx hyperframes check --json                         # gate; fix every error
+npx hyperframes snapshot --at 1,5,9                  # read the PNGs under .hyperframes/artifacts/snapshots/
+npx hyperframes preview --background                 # give the user the URL, wait
+npx hyperframes render --fps 60 --quality draft --output sample.mp4
+npx hyperframes render --fps 60 --quality delivery --output out.mp4
 ```
 
-- While a lint error remains, layout and contrast audits do not run; "0 samples" means nothing was checked.
-- A 3 s+ video with no visible change fails `sweep_static`.
-- Existing project: `npx hyperframes timeline --json` shows what plays when. Timeline edits: `timeline move|trim|split|set|duplicate|delete <ref> --plan --json`.
-- Render variants: `--docker --strict` (reproducible), `--batch rows.json --output "renders/{name}.mp4"`, `cloud render` (hosted).
-- Failures: `doctor --json` (gate on `.ok`), `browser ensure` if Chrome is missing, raise `--timeout` for heavy pages, never delete `.hyperframes` (history).
-- After render: file non-empty, `ffprobe` duration equals root `data-duration`, then look at decoded frames.
+- Existing project: `npx hyperframes timeline --json` shows what plays when. Edit: `timeline move|trim|split|set|duplicate|delete <ref> --plan --json`, then without `--plan`. Edits are refused on overlap (`--overwrite` or move the neighbour) or when ending past the composition.
+- After render: file non-empty, `ffprobe` duration equals root `data-duration`, `r_frame_rate` is `60/1`.
+- Variants: `--docker --strict` (reproducible), `--batch rows.json --output "renders/{name}.mp4"`.
+- Failures: `doctor --json` (gate on `.ok`), `browser ensure` if Chrome is missing, raise `--timeout` for heavy pages.
+- **Minimal ffmpeg breaks the render.** Verified: with a minimal ffmpeg on PATH, `render` fails at "Extracting video frames" with `VIDEO_SOURCE_UNRENDERABLE ... ffmpeg_failed` (the build lacks `setparams` and the frame-image muxer). Fix: `export HYPERFRAMES_FFMPEG_PATH=/path/to/full/ffmpeg`, then render again. `scripts/doctor.sh` warns about it. (`npx hyperframes check` passes either way; only the render needs ffmpeg.)
+- Never delete `.hyperframes` (project history). Do not run `publish`, `cloud`, `usage` or billing commands without the user's go-ahead.
 
-## Other sub-skills (if installed upstream)
+## Verified assembly
 
-`/media-use` (voice, music, footage, treatments), `/hyperframes-registry` (catalog), `/slideshow` (decks), `/figma`. Full docs: `npx hyperframes docs <topic>`.
+Tested end to end: two Remotion clips (a narrator clip with voice, then a UI-demo clip trimmed with `data-media-start="1"`, crossfaded for 0.3 s via a GSAP opacity tween on the second clip) gave `check` 0 errors and 0 warnings, rendered with `--fps 60`, and probed as 1920x1080, 60 fps, 16.7 s with audio. The trim landed exactly (see `handoff.md`, "Verify the cut").
+
+## Transitions between clips
+
+Overlap two clips by 0.3-0.5 s and animate a wrapper's opacity or x/y with GSAP (`power2.inOut`). Search `npx hyperframes catalog --query "<transition>" --json` before hand-writing a named transition. Scenes themselves stay in Remotion.

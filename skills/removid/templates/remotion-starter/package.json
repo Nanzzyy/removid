@@ -1,0 +1,29 @@
+{
+  "name": "removid-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "node scripts/check-logic.mjs",
+    "check:cursor": "node scripts/check-click-stills.mjs UiDemo",
+    "envelope": "node scripts/make-envelope.mjs"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.541",
+    "@remotion/cli": "4.0.541",
+    "@remotion/renderer": "4.0.541",
+    "@types/three": "^0.186.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.541",
+    "three": "^0.186.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.5.0"
+  }
+}

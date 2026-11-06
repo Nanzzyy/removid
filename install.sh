@@ -61,13 +61,14 @@ for agent in "${AGENTS[@]}"; do
     else echo "skipped  [$agent] $dest exists and is not removid" >&2; continue; fi
   fi
   if [ "$MODE" = link ]; then ln -s "$SRC" "$dest"; echo "linked   [$agent] $dest"
-  else cp -R "$SRC" "$dest"; echo "copied   [$agent] $dest"; fi
+  else mkdir -p "$dest" && (cd "$SRC" && tar --exclude=node_modules --exclude=out --exclude=.remotion -cf - .) | (cd "$dest" && tar -xf -); echo "copied   [$agent] $dest"; fi
 done
 
-[ "$ACTION" = install ] && cat <<'EOF'
+if [ "$ACTION" = install ]; then cat <<'EOF'
 
 Restart the agent session so it picks the skill up.
   Claude Code : /removid
   Codex       : $removid   (or /skills)
   Antigravity : describe a video task; the skill activates from its description
 EOF
+fi

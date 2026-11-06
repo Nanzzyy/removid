@@ -1,46 +1,72 @@
 ---
 name: removid
-description: Make, edit, port and render programmatic video (MP4/GIF/WebM) from code with Remotion (React) or HyperFrames (HTML+GSAP). Use for /removid, launch films, explainers, social clips, title cards, data-driven or per-record batch videos, motion graphics, beat-synced edits, and porting Remotion to HyperFrames. Routes to the right engine, runs a brief-to-render workflow with approval gates, and verifies frames before encoding.
-argument-hint: "[brief | path-to-project | 'doctor']"
+description: Make programmatic video (MP4/GIF/WebM) at 60 fps. Remotion (React) authors every scene: UI demos, cursor that lands exactly on its target, smooth zoom-to-highlight, a 3D Claude-style narrator character with lip sync, data-driven batches. HyperFrames cuts and assembles the rendered clips (trim, split, order, transitions, music, final render). Use for /removid, launch films, explainers, UI-interaction demos, narrated videos, social clips, motion graphics, beat-synced edits and cutting raw footage.
+argument-hint: "[brief | path-to-project | 'doctor' | 'new <dir>']"
 ---
 
 # removid
 
-One entry point for code-made video. Pick the engine, follow the workflow, load only the reference you need.
+Two tools, two jobs. Do not blur them.
 
-## 1. Pick the engine
-
-| Situation | Engine | Read |
+| Stage | Tool | Does |
 | --- | --- | --- |
-| New video, launch/explainer/social/music clip, person will keep editing it | **HyperFrames** (default) | `references/hyperframes.md` |
-| Project already uses Remotion, React components must be reused, or one composition renders many outputs from rows/props (CSV, DB) | **Remotion** | `references/remotion.md` |
-| Existing Remotion/Lottie/Three.js/canvas work should become HyperFrames | **Port** | `references/migration.md` |
-| Needs GSAP timelines (inside HyperFrames) or web animation | GSAP | `references/gsap.md` |
-| Unsure how it should feel/move: easing, durations, stagger, colour, framing, beat sync | Motion design | `references/motion-design.md` |
+| **Author** | **Remotion** | Builds and edits every scene: layout, text, UI, cursor, zoom, narrator character, charts, data-driven props. Remotion Studio is the editor. Renders each scene to a clip. |
+| **Cut + assemble** | **HyperFrames** | Takes rendered clips and raw footage: trim, split, reorder, overlap, transitions, music/VO mix, beat-aligned cuts, final render. |
 
-Existing project: detect the engine from the files (`remotion.config.*` or `remotion` in `package.json` = Remotion; `index.html` with `data-composition-id` = HyperFrames) and stay in it. Do not switch engines unless asked.
+Never author scenes in HyperFrames HTML, and never port Remotion work into HyperFrames HTML. Hand clips over as video files (`references/handoff.md`).
 
-If `$ARGUMENTS` is `doctor`, run `scripts/doctor.sh` and report; stop.
+## Defaults
 
-## 2. Workflow (all engines)
+- **60 fps.** HyperFrames renders at 30 unless told otherwise, and Remotion takes whatever the composition says. Set `fps={60}` in Remotion and `--fps 60` on the HyperFrames render, then verify with `scripts/probe-mp4.sh`. Use 30 only if the user or platform asks.
+- 1920x1080 (vertical 1080x1920).
+- No voiceover, captions or extra aspect ratios nobody asked for. Narration is the one thing you must ask about (below).
 
-Read `references/workflow.md` for details. Short form:
+## Ask first (before planning)
 
-1. **Brief**: goal, audience, length, aspect/size/fps, brand assets, copy, music or voice. Defaults: 1920x1080, 30 fps. Do not add voiceover, captions or extra aspect ratios nobody asked for. Ask only what blocks the work.
-2. **Plan (gate 1)**: shot list with seconds, engine choice, assets needed. Show it and wait for approval unless the user said "no stops".
-3. **Build**: scenes as separate units; text, colours and media as variables/props, not hard-coded.
-4. **Check**: engine linter/validator, then render **stills** at start, mid and end of every scene. Look at them (text overflow, off-canvas, safe area, fonts, wrong data).
-5. **Sample (gate 2)**: render a short sample (about 10 s, or the busiest scene) at draft quality and show it. Wait for approval.
-6. **Deliver**: full render, then `scripts/probe-mp4.sh out.mp4 WxH fps` to assert size, fps, duration and non-empty file. Tell the user where the file is and what is editable.
+Ask only what the brief leaves open, in one short batch (use the agent's question tool if it has one):
 
-## 3. Hard rules
+1. **Narration?** Does the video need a spoken narrator?
+2. If yes, **a character?** Offer: the built-in **Claude-style 3D character** (default; coral body, spark badge, lip sync), voice only with no character, or the user's own character/art.
+3. If yes, **voice**: the user's audio file, or text-to-speech (which language and voice). Never invent a voice or send the script to a service the user has not accepted.
+4. **Highlights**: which things should the camera zoom into and spotlight? Propose 1-3 from the script and let the user correct.
+5. Platform/size/fps if it changes the defaults.
 
-- Every frame is a pure function of time. No `Date.now()`, unseeded `Math.random()`, timers, network fetches at render time, or infinite repeats.
-- Fonts and assets are local files referenced by relative path; wait for them before rendering.
-- Keep content inside the 90% action-safe box and key text inside 80% title-safe.
-- Never pass a render if the check or the stills fail. Say what failed, with output.
+No narration means no character: skip 2-3. Details: `references/character-and-narration.md`.
+
+## Route
+
+| Need | Read |
+| --- | --- |
+| Any new video | `references/workflow.md` (start here), then `references/remotion.md` |
+| Cursor, click, zoom highlight, UI demo | `references/cursor-and-camera.md` (mandatory) |
+| Narrator character, voice, lip sync | `references/character-and-narration.md` |
+| Cutting, trimming, assembling, raw footage, music | `references/hyperframes.md`, `references/handoff.md` |
+| Easing, durations, stagger, framing, beat sync | `references/motion-design.md` |
+
+Start a new Remotion project with `scripts/new-project.sh <dir>`: it copies a tested starter (60 fps, zoom, cursor, narrator, checks) from `templates/remotion-starter`. Existing project: detect it (`remotion.config.*` or `remotion` in `package.json` = Remotion scenes; `index.html` with `data-composition-id` = HyperFrames assembly) and continue in place. `$ARGUMENTS` = `doctor` runs `scripts/doctor.sh`, reports, stops; `new <dir>` runs `new-project.sh`.
+
+HyperFrames is skipped only when the result is one Remotion scene with no cuts, footage or audio assembly.
+
+## Workflow
+
+1. **Ask**, then **brief and plan (gate 1)**: shots in seconds, cut points, cursor targets, zoom highlights, narrator cues, fps. Wait for approval unless told "no stops".
+2. **Remotion**: build scenes, run `npm run check` (numeric rules), render **stills** (start, mid, end, every click frame, one frame per zoom hold) and look at them.
+3. **Cursor proof**: `npm run check:cursor` must say ALL OK.
+4. **Render scene clips** at 60 fps with handle frames; probe each.
+5. **HyperFrames**: import clips, cut and arrange, mix audio, `check`, snapshot.
+6. **Sample (gate 2)**: about 10 s at draft quality. Wait.
+7. **Final render** at `--fps 60`, then `scripts/probe-mp4.sh out.mp4 1920x1080 60 <seconds>` must say OK.
+
+Revising one scene means re-rendering that clip only.
+
+## Hard rules
+
+- Every frame is a pure function of time: no `Date.now()`, unseeded `Math.random()`, timers or render-time network fetches.
+- Cursor targets come from one shared rect table and the check scripts pass; never aim by eye.
+- Zoom is smooth (eased in and out, no stiff start), never zoom in and straight back out, never zoom while the cursor lands.
+- Fonts and assets are local files with relative paths. No emoji or system-font symbols in scenes (they render as empty boxes on machines without those fonts); use SVG.
+- Content inside the 90% action-safe box, key text inside 80% title-safe.
+- A failed check or a bad still is not a pass. Report what failed, with output.
 - Do not publish, upload or send a render anywhere without the user's go-ahead.
 
-## 4. Authoritative sources
-
-These references are condensed. For exhaustive or version-specific detail use the engine's own docs: `npx hyperframes docs <topic>`, `npx remotion --help`, https://www.remotion.dev/docs. If the full upstream skills are installed (`/hyperframes`, `/hyperframes-cli`, `/remotion-to-hyperframes`), defer to them on conflicts.
+Condensed references. For exhaustive detail: `npx hyperframes docs <topic>`, https://www.remotion.dev/docs.

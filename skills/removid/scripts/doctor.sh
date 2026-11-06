@@ -16,9 +16,21 @@ check npx     npx     "ships with Node.js"
 check ffmpeg  ffmpeg  "install FFmpeg (apt install ffmpeg / brew install ffmpeg)"
 check ffprobe ffprobe "ships with FFmpeg"
 
+if command -v ffmpeg >/dev/null 2>&1 && ! ffmpeg -hide_banner -filters 2>/dev/null | grep -q ' setparams '; then
+  if [ -n "${HYPERFRAMES_FFMPEG_PATH:-}" ] && [ -x "$HYPERFRAMES_FFMPEG_PATH" ] && "$HYPERFRAMES_FFMPEG_PATH" -hide_banner -filters 2>/dev/null | grep -q ' setparams '; then
+    echo "  ok    HYPERFRAMES_FFMPEG_PATH points to a full ffmpeg (PATH ffmpeg is a minimal build)"
+  else
+    echo "  WARN  ffmpeg on PATH is a minimal build (no setparams filter). HyperFrames renders FAIL with it"
+    echo "        (VIDEO_SOURCE_UNRENDERABLE). export HYPERFRAMES_FFMPEG_PATH=/path/to/full/ffmpeg"
+    warn=$((warn+1))
+  fi
+fi
+
 if command -v node >/dev/null 2>&1; then
-  major=$(node -p 'process.versions.node.split(".")[0]')
-  [ "$major" -ge 22 ] 2>/dev/null || { echo "  WARN  node $major < 22 (HyperFrames needs 22+)"; warn=$((warn+1)); }
+  minor=$(node -p 'process.versions.node.split(".")[1]'); major=$(node -p 'process.versions.node.split(".")[0]')
+  if [ "$major" -lt 22 ] || { [ "$major" -eq 22 ] && [ "$minor" -lt 18 ]; }; then
+    echo "  WARN  node $(node -v): HyperFrames needs Node 22+ and the starter's check scripts run .ts directly (22.18+)"; warn=$((warn+1))
+  fi
 fi
 
 echo "engines (checked lazily via npx; first run downloads them):"
