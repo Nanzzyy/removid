@@ -13,6 +13,8 @@ One folder per video. It is the single source of truth: a new session, another a
 └── Result/           sample/ (10 s), v1/, v2/ ... each with the video and a _source.tgz of Source + Storyboard
 ```
 
+**The schema is mandatory.** `new` creates every folder and ledger file; nothing is built, rendered or saved outside it. Git does not keep empty folders, so a cloned or archived project loses `Asset/owner`, `Asset/agen`, `Asset/scenes`, `Result`... : `status` shows `FOLDER INCOMPLETE`, `check script` and `check storyboard` fail with the list, and `project.mjs repair <proj>` recreates what is missing (folders, `REFERENCES.md`, `ASSETS.md`, `SOURCES.md`, `style.json`) and never overwrites a file that exists. `Asset/ASSETS.md` is the ledger: every file the build uses (owner's, agent's, footage) is listed with who made it and which frame uses it; `check storyboard` warns about an unlisted file and about an `asset:` line naming a file that does not exist yet.
+
 Same layout as the Hermes motion-project folders, plus the script file in `Storyboard/` so that the script is covered by the storyboard approval. The folder layout is compatible; `PROJECT.md` is not: the Hermes `mp` tool expects different gate fields (Indonesian statuses, a `version` field) and fails on a project made here (tested). Use one tool per project, and do not point `--root` at a tree that `mp` manages.
 
 ## PROJECT.md
@@ -43,6 +45,7 @@ A gate is a hard stop that a script enforces. Approval is **the user's own words
 ```
 intake "<brief>" [--json]          what the brief states, what is assumed, the (at most 4) questions to ask
 style [name|--list|--for "<brief>"]  a style card, the 36 styles, or the three that fit a brief
+repair <proj>                     recreate any missing mandatory folder or template file (never overwrites)
 new <Brand> <slug> --brief "..." [--type motion|footage] [--format landscape|portrait|square] [--duration N] [--narration yes|no] [--voice ...] [--character <id>|none] [--style NAME] [--language id-ID]
 set-style <proj> <name>           fix the style (Storyboard/style.json; scaffold writes src/style.ts)
 set-character <proj> <id>|none

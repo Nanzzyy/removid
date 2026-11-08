@@ -308,3 +308,26 @@ test('a video-editing style makes a footage project; other styles do not', () =>
   const m = mk('midnight'); assert.ok(!fs.existsSync(path.join(m.d, 'Raw-Footage'))); assert.match(fs.readFileSync(path.join(m.d, 'PROJECT.md'), 'utf8'), /type: motion/);
   assert.match(run('style', '--list', '--category', 'video-editor').out, /SYSTEM/); assert.ok(!/MIDNIGHT/.test(run('style', '--list', '--category', 'video-editor').out));
 });
+
+// ---------- the mandatory folder schema ----------
+test('new creates the whole mandatory schema; a missing folder is an error and repair restores it without overwriting', () => {
+  const must = ['PROJECT.md', 'Reference', 'Reference/REFERENCES.md', 'Reference/_TEMPLATE.analysis.md', 'Storyboard', 'Storyboard/STRUCTURE.md', 'Storyboard/SCRIPT.md', 'Storyboard/STORYBOARD.md', 'Asset/owner', 'Asset/agen', 'Asset/scenes', 'Asset/ASSETS.md', 'Source/remotion', 'Source/hyperframes', 'Result'];
+  const d = project(); for (const f of must) assert.ok(fs.existsSync(path.join(d, f)), f); assert.ok(!fs.existsSync(path.join(d, 'Raw-Footage')), 'only footage projects have Raw-Footage');
+  const root = path.join(tmp, 'ft' + n++); assert.equal(run('new', 'Kopi', 'tips', '--root', root, '--type', 'footage', '--narration', 'no', '--style', 'system', '--brief', 'x').code, 0);
+  const f = path.join(root, 'Kopi', fs.readdirSync(path.join(root, 'Kopi'))[0]); assert.ok(fs.existsSync(path.join(f, 'Raw-Footage/SOURCES.md')));
+  // a clone or an archive loses empty folders
+  fs.rmSync(path.join(d, 'Asset/owner'), {recursive: true}); fs.rmSync(path.join(d, 'Asset/agen'), {recursive: true}); fs.rmSync(path.join(d, 'Result'), {recursive: true}); fs.rmSync(path.join(d, 'Asset/ASSETS.md'));
+  for (const what of ['script', 'storyboard']) { const r = run('check', what, d); assert.equal(r.code, 1, what); assert.match(r.out, /project folder is missing: Asset\/owner\/, Asset\/agen\/, Result\/, Asset\/ASSETS\.md\. Run `project\.mjs repair/); }
+  assert.match(run('status', d).out, /FOLDER INCOMPLETE: missing Asset\/owner\//); assert.equal(run('submit', 'script', d).code, 1);
+  fs.writeFileSync(path.join(d, 'Reference/REFERENCES.md'), 'MY OWN NOTES'); const rep = run('repair', d); assert.equal(rep.code, 0, rep.out); assert.match(rep.out, /nothing existing was overwritten/);
+  for (const x of must) assert.ok(fs.existsSync(path.join(d, x)), 'restored ' + x); assert.equal(fs.readFileSync(path.join(d, 'Reference/REFERENCES.md'), 'utf8'), 'MY OWN NOTES');
+  assert.match(fs.readFileSync(path.join(d, 'Asset/ASSETS.md'), 'utf8'), /Project assets/); assert.match(run('repair', d).out, /nothing to do/); assert.equal(run('check', 'script', d).code, 0);
+  assert.match(fs.readFileSync(path.join(d, 'PROJECT.md'), 'utf8'), /folder schema repaired/);
+});
+test('the asset ledger: files the build uses are listed, and files the storyboard names must exist', () => {
+  const d = project(); let r = run('check', 'storyboard', d); assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /Frame 3 \(Solution\): asset Asset\/owner\/prvtech-logo\.svg is not in the project yet/);
+  fs.writeFileSync(path.join(d, 'Asset/owner/prvtech-logo.svg'), '<svg/>'); r = run('check', 'storyboard', d);
+  assert.ok(!/is not in the project yet/.test(r.out)); assert.match(r.out, /not listed in Asset\/ASSETS\.md .*Asset\/owner\/prvtech-logo\.svg/);
+  fs.appendFileSync(path.join(d, 'Asset/ASSETS.md'), '| prvtech-logo.svg | owner | the owner\'s logo | 3 |\n'); r = run('check', 'storyboard', d); assert.ok(!/not listed in Asset\/ASSETS\.md/.test(r.out) && !/is not in the project yet/.test(r.out));
+});

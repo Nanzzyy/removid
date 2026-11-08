@@ -9,6 +9,7 @@
 //   node project.mjs vo-lines <project> [--engine plain|edge|elevenlabs|chatterbox|voicestudio]   per-line text and voice settings from the script's emotion tags
 //   node project.mjs voice-check [--url URL]   read-only: which voice routes exist here (agent default, a local speech server, the user's own audio)
 //   node project.mjs vo-synth <project> [--url URL] [--voice NAME]   OPTIONAL: speak each line with a local speech server the owner already runs (loopback only; installs nothing)
+//   node project.mjs repair <project>   recreate any missing mandatory folder or template file (never overwrites)
 //   node project.mjs status [project]
 //   node project.mjs check script|storyboard <project>
 //   node project.mjs submit script|storyboard <project> [--estimate "reason"]
@@ -103,6 +104,26 @@ function saveProject(proj, data, body) { fs.writeFileSync(P(proj, 'PROJECT.md'),
 function logLine(proj, text) { const {data, body} = loadProject(proj); saveProject(proj, data, body.replace(/\s*$/, '\n') + `- ${now()} — ${text}\n`); }
 const narrated = (data) => String(data.narration).toLowerCase() === 'yes';
 
+// ---------- the mandatory folder schema ----------
+// Git does not keep empty folders, so a cloned or archived project loses Asset/owner, Asset/agen ...; the checks and `status` notice, `repair` restores.
+const FOLDERS = ['Reference', 'Storyboard', 'Asset/owner', 'Asset/agen', 'Asset/scenes', 'Source/remotion', 'Source/hyperframes', 'Result'];
+const folderList = (data) => [...FOLDERS, ...(data.type === 'footage' ? ['Raw-Footage'] : [])];
+const folderFiles = (data) => [['Reference/REFERENCES.md', 'REFERENCES.md'], ['Reference/_TEMPLATE.analysis.md', 'ANALYSIS.md'], ['Asset/ASSETS.md', 'ASSETS.md'], ...(data.type === 'footage' ? [['Raw-Footage/SOURCES.md', 'SOURCES.md']] : [])];
+/** What of the schema is missing from a project: folders and the ledger/index files every project carries. */
+function folderIssues(proj, data) {
+  const dirs = folderList(data).filter((d) => !exists(P(proj, d))); const files = folderFiles(data).filter(([f]) => !exists(P(proj, f))).map(([f]) => f);
+  return {dirs, files, any: dirs.length + files.length > 0, text: [...dirs.map((d) => d + '/'), ...files].join(', ')};
+}
+/** The files of Asset/owner and Raw-Footage that Asset/ASSETS.md (the ledger) does not mention, and files the storyboard's `asset:` lines name that do not exist. */
+function ledgerIssues(proj, data) {
+  const ledger = exists(P(proj, 'Asset', 'ASSETS.md')) ? read(P(proj, 'Asset', 'ASSETS.md')) : '';
+  const held = [];
+  for (const d of ['Asset/owner', ...(data.type === 'footage' ? ['Raw-Footage'] : [])]) if (exists(P(proj, d))) for (const f of fs.readdirSync(P(proj, d))) if (!/^(SOURCES\.md|\.gitkeep|\.DS_Store)$/.test(f) && fs.statSync(P(proj, d, f)).isFile()) held.push({file: f, dir: d});
+  return {unlisted: held.filter((h) => !ledger.includes(h.file)).map((h) => `${h.dir}/${h.file}`)};
+}
+const pathLike = (t) => (t.match(/(?:[\w.-]+\/)*[\w.-]+\.(?:mp4|mov|webm|mkv|wav|mp3|m4a|png|jpe?g|svg|webp|gif|json|ttf|otf|woff2?)\b/gi) || []);
+const assetExists = (proj, ref) => [ref, `Asset/owner/${ref}`, `Raw-Footage/${ref}`, `Asset/${ref}`].some((c) => exists(P(proj, c)));
+
 // ---------- script ----------
 const BLOCK_RE = /^\s*(?:#{1,6}\s*)?\[\s*(\d+(?:[.,]\d+)?)\s*[–—-]\s*(\d+(?:[.,]\d+)?)\s*s?\s*\]\s*(.*)$/;
 const cleanSpoken = (t) => t.replace(/\[[^\]]*\]/g, ' ').replace(/^[>\-\s]+/, '').replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim();
@@ -153,6 +174,7 @@ const claimCovered = (term, claims) => claims.some((x) => x.claim.toLowerCase().
 function checkScript(proj) {
   const file = P(proj, 'Storyboard', 'SCRIPT.md'); const issues = [];
   const E = (m) => issues.push({level: 'error', msg: m}), W = (m) => issues.push({level: 'warn', msg: m}), I = (m) => issues.push({level: 'info', msg: m});
+  { const fi = folderIssues(proj, loadProject(proj).data); if (fi.any) E(`the project folder is missing: ${fi.text}. Run \`project.mjs repair <project>\` (mandatory schema: project-folder.md)`); }
   if (!exists(file)) { E('Storyboard/SCRIPT.md is missing'); return {issues, rows: []}; }
   const {meta, blocks, claims} = parseScript(read(file));
   const proj0 = loadProject(proj).data; const talk = narrated(proj0);
@@ -362,6 +384,7 @@ const norm = (t) => cleanSpoken(t).toLowerCase().replace(/[^\p{L}\p{N}\s.-]/gu, 
 
 function checkStoryboard(proj) {
   const issues = []; const E = (m) => issues.push({level: 'error', msg: m}), W = (m) => issues.push({level: 'warn', msg: m}), I = (m) => issues.push({level: 'info', msg: m});
+  { const fi = folderIssues(proj, loadProject(proj).data); if (fi.any) E(`the project folder is missing: ${fi.text}. Run \`project.mjs repair <project>\` (mandatory schema: project-folder.md)`); }
   const file = P(proj, 'Storyboard', 'STORYBOARD.md'); if (!exists(file)) { E('Storyboard/STORYBOARD.md is missing'); return {issues}; }
   const proj0 = loadProject(proj).data; const talk = narrated(proj0);
   const {meta, frames} = parseStoryboard(read(file));
@@ -401,6 +424,7 @@ function checkStoryboard(proj) {
     const inside = (x, y, what) => { if (x < t.a - 1e-9 || y > t.b + 1e-9) { E(`${tag}: ${what} ${f2(x)}–${f2(y)} is outside the frame ${f2(t.a)}–${f2(t.b)}`); return false; } return true; };
     for (const k of ['scene', 'engine', 'asset', 'reads']) if (!get(k).length || !get(k)[0]) E(`${tag}: missing "- ${k}:"`);
     if (get('scene')[0] && get('scene')[0].length < 8) E(`${tag}: scene description is too short to build from`);
+    for (const a of get('asset')) for (const ref of pathLike(a)) if (!assetExists(proj, ref)) W(`${tag}: asset ${ref} is not in the project yet (Asset/owner, Asset/agen or Raw-Footage); it must exist before the build`);
     const eng = (get('engine')[0] || '').toLowerCase();
     if (eng && !['remotion', 'footage', 'remotion+footage'].includes(eng)) E(`${tag}: engine "${eng}" is not allowed. Remotion authors scenes (remotion); HyperFrames only cuts raw footage (footage).`);
     const vo = get('vo'); if (!vo.length) E(`${tag}: missing "- vo:" (use "- vo: none" for a silent frame)`);
@@ -465,6 +489,7 @@ function checkStoryboard(proj) {
   if (dur && Math.abs(total - dur) > 1e-9) E(`frames end at ${f2(total)} s but duration is ${f2(dur)} s`);
   const sum = plan.reduce((a, p) => a + p.durationFrames, 0); const want = Math.round(total * fps);
   if (sum !== want) E(`frame counts add up to ${sum} but the video has ${want} frames`);
+  { const lg = ledgerIssues(proj, proj0); if (lg.unlisted.length) W(`not listed in Asset/ASSETS.md (every file the build uses is listed with who made it and where it is used): ${lg.unlisted.join(', ')}`); }
   if (st) { const avg = total / plan.length; const [lo, hi] = st.shotSec; if (avg < lo * 0.75 || avg > hi * 1.25) W(`frames average ${f2(avg)} s; ${st.name} cuts every ${lo}-${hi} s`); for (const p of plan) if (p.end - p.start > hi * 1.8) W(`Frame ${p.id} stays ${f2(p.end - p.start)} s; ${st.name} rarely holds one shot beyond ${hi} s`); }
   const struct = checkStructure(proj);
   if (struct.beats?.length) {
@@ -647,7 +672,7 @@ const COMMANDS = {
     if (!['motion', 'footage'].includes(type) || !SIZES[format] || !['yes', 'no'].includes(narration)) die('--type motion|footage, --format landscape|portrait|square, --narration yes|no', 2);
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, ''); const proj = path.join(rootDir(opt), brand, `${date}-${slug}`);
     if (exists(proj)) die(`already exists: ${proj}`);
-    for (const d of ['Reference', 'Storyboard', 'Asset/owner', 'Asset/agen', 'Asset/scenes', 'Source/remotion', 'Source/hyperframes', 'Result', ...(type === 'footage' ? ['Raw-Footage'] : [])]) fs.mkdirSync(P(proj, d), {recursive: true});
+    for (const d of folderList({type})) fs.mkdirSync(P(proj, d), {recursive: true});
     const dur = num(opt.duration) || 30; const sub = (s) => s.replace(/{{brand}}/g, brand).replace(/{{slug}}/g, slug).replace(/{{duration}}/g, dur).replace(/{{narration}}/g, narration).replace(/{{size}}/g, SIZES[format]).replace(/{{wps}}/g, DEFAULT_WPS);
     const put = (from, to) => fs.writeFileSync(P(proj, to), sub(read(path.join(TPL, from))));
     put('STRUCTURE.md', 'Storyboard/STRUCTURE.md'); put('SCRIPT.md', 'Storyboard/SCRIPT.md'); put('STORYBOARD.md', 'Storyboard/STORYBOARD.md'); put('REFERENCES.md', 'Reference/REFERENCES.md'); put('ANALYSIS.md', 'Reference/_TEMPLATE.analysis.md'); put('ASSETS.md', 'Asset/ASSETS.md'); if (type === 'footage') put('SOURCES.md', 'Raw-Footage/SOURCES.md');
@@ -665,6 +690,7 @@ const COMMANDS = {
     for (const proj of list) {
       const {data} = loadProject(proj); const talk = narrated(data);
       const rel = path.relative(process.cwd(), proj); out(`${rel && !rel.startsWith('..') ? rel : proj}\n  ${data.type} ${data.format} ${data.size} ${data.fps} fps ${data.target_duration}s  narration=${data.narration}  character=${data.character}  voice=${data.voice}${data.style ? `  style=${data.style}` : ''}`);
+      { const fi = folderIssues(proj, data); if (fi.any) out(`  FOLDER INCOMPLETE: missing ${fi.text}; run \`repair\``); }
       const gates = [...(talk ? ['script'] : []), 'storyboard', 'sample', 'final'];
       for (const g of gates) out(`  gate ${g.padEnd(10)} ${accState(proj, g, data)}${data.acc?.[g]?.evidence ? `   "${String(data.acc[g].evidence).slice(0, 60)}"` : ''}`);
       const st = Object.fromEntries(gates.map((g) => [g, accState(proj, g, data)])); const nx = [];
@@ -936,6 +962,14 @@ ${fades}
     const proj = findProject(p, opt); const {data, body} = loadProject(proj);
     if (c !== 'none' && !narrated(data)) die('narration is off for this project; a character needs a voice');
     data.character = c; saveProject(proj, data, body); logLine(proj, `character set to ${c}`); out(`character: ${c}`);
+  },
+  repair(pos, opt) {
+    const proj = findProject(pos[0], opt); const {data} = loadProject(proj); const fi = folderIssues(proj, data);
+    if (!fi.any) { out('the folder schema is complete; nothing to do'); return; }
+    for (const d of fi.dirs) fs.mkdirSync(P(proj, d), {recursive: true});
+    for (const [f, tpl] of folderFiles(data)) if (!exists(P(proj, f))) { fs.mkdirSync(path.dirname(P(proj, f)), {recursive: true}); fs.writeFileSync(P(proj, f), read(path.join(TPL, tpl)).replace(/{{brand}}/g, data.brand || '').replace(/{{slug}}/g, data.project || '').replace(/{{duration}}/g, data.target_duration || '').replace(/{{narration}}/g, data.narration || '').replace(/{{size}}/g, data.size || '').replace(/{{wps}}/g, DEFAULT_WPS)); }
+    if (data.style && data.style !== 'undecided' && !exists(P(proj, 'Storyboard', 'style.json')) && resolveStyle(data.style)) fs.writeFileSync(P(proj, 'Storyboard', 'style.json'), JSON.stringify(resolveStyle(data.style), null, 1) + '\n');
+    logLine(proj, `folder schema repaired: restored ${fi.text}`); out(`restored: ${fi.text}\n(nothing existing was overwritten)`);
   },
   log(pos, opt) { const [p, ...t] = pos; if (!t.length) die('usage: log <project> "note"', 2); logLine(findProject(p, opt), t.join(' ')); out('logged'); },
 };

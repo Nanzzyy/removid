@@ -77,6 +77,7 @@ Approval means the user's own words, passed to `approve --evidence "..."`. Chang
 
 ## Hard rules
 
+- The folder schema is mandatory (`references/project-folder.md`): never work outside the project folder; if `status` says FOLDER INCOMPLETE, run `repair`. Every file the build uses is listed in `Asset/ASSETS.md`.
 - No script, no storyboard, no build: do not write scene code or render before the matching `project.mjs gate` says open. Never skip a gate because the video is short or the user sounds in a hurry; a one-frame storyboard is still a storyboard.
 - Order is fixed: intake, style, structure, script, voice, character, storyboard. The voice is never made before the script is approved.
 - One emotion tag drives the voice, the narrator's face and the gestures; a gesture that contradicts the delivery (a wave while `sad`) is a defect. Movement is eased with the style's named curves, never linear, and stays consistent: the same emotion always looks the same.
