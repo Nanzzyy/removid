@@ -147,14 +147,35 @@ function speechSec(text, wps) {
   const dashes = (text.match(/\s[—–-]\s|—/g) || []).length, commas = (text.match(/,/g) || []).length;
   return words / wps + Math.max(0, ends) * 0.25 + dashes * 0.15 + commas * 0.08;
 }
-function parseScript(text) {
+/**
+ * The script has two formats. PLAIN (every new project): paragraphs, one per spoken beat of STRUCTURE.md in order, each opening with its emotion
+ * tag, then `## Claims`. There is NO time in it: what a TTS or a microphone receives is the file as it is. The time budget of each line is its beat's
+ * window, taken from the structure (`beats`). TIMED (older projects): "[00.0–03.0] LABEL" headers; still read, but a project that has a
+ * STRUCTURE.md is told to remove the seconds.
+ */
+function parseScript(text, beats) {
   const {data, body} = readFront(text); const blocks = []; const sections = {}; let cur = null, sec = null;
-  for (const line of body.split('\n')) {
-    const m = line.match(BLOCK_RE);
-    if (m) { cur = {start: num(m[1]), end: num(m[2]), label: m[3].trim(), raw: []}; blocks.push(cur); sec = null; continue; }
-    const h = line.match(/^#{1,6}\s+(.*)$/);
-    if (h) { cur = null; sec = h[1].trim().toLowerCase(); sections[sec] = sections[sec] || []; continue; }
-    if (cur) { if (line.trim() && !line.trim().startsWith('<!--')) cur.raw.push(line.trim()); } else if (sec) sections[sec].push(line);
+  const timed = body.split('\n').some((l) => BLOCK_RE.test(l));
+  if (timed) {
+    for (const line of body.split('\n')) {
+      const m = line.match(BLOCK_RE);
+      if (m) { cur = {start: num(m[1]), end: num(m[2]), label: m[3].trim(), raw: []}; blocks.push(cur); sec = null; continue; }
+      const h = line.match(/^#{1,6}\s+(.*)$/);
+      if (h) { cur = null; sec = h[1].trim().toLowerCase(); sections[sec] = sections[sec] || []; continue; }
+      if (cur) { if (line.trim() && !line.trim().startsWith('<!--')) cur.raw.push(line.trim()); } else if (sec) sections[sec].push(line);
+    }
+  } else {
+    let para = [], beat = null;
+    const flush = () => { if (para.length) blocks.push({start: NaN, end: NaN, label: '', beat, raw: para}); para = []; };
+    for (const line of body.replace(/<!--[\s\S]*?-->/g, '').split('\n')) {
+      const h = line.match(/^#{1,6}\s+(.*)$/);
+      if (h) { flush(); const t = h[1].trim(); const bm = t.match(/^beat\s+(\d+)/i); if (bm) { beat = Number(bm[1]); sec = null; } else if (/^claims/i.test(t)) { sec = t.toLowerCase(); sections[sec] = sections[sec] || []; } else sec = null; continue; }
+      if (sec) { sections[sec].push(line); continue; }
+      if (!line.trim()) { flush(); continue; }
+      para.push(line.trim());
+    }
+    flush();
+    if (beats) assignBeats(blocks, beats);
   }
   for (const b of blocks) { b.rawText = b.raw.join(' '); b.text = cleanSpoken(b.rawText); b.words = countWords(b.text); b.tags = extractTags(b.rawText, countWords, cleanSpoken); }
   const claims = [];
@@ -164,8 +185,26 @@ function parseScript(text) {
     if (c.every((x) => /^[-: ]*$/.test(x)) || c[0].toLowerCase() === 'claim') continue;
     claims.push({claim: c[0].replace(/^["“]|["”]$/g, ''), status: (c[1] || '').toLowerCase(), source: c[2] || ''});
   }
-  return {meta: data, blocks, claims};
+  return {meta: data, blocks, claims, format: timed ? 'timed' : 'plain'};
 }
+/** Give each paragraph the window of its beat: by `## Beat N` when every paragraph has one, else the n-th paragraph to the n-th spoken beat. */
+function assignBeats(blocks, beats) {
+  const spoken = beats.filter((b) => b.vo !== 'none'); const explicit = blocks.length && blocks.every((b) => b.beat);
+  blocks.forEach((b, i) => { const beat = explicit ? beats.find((x) => x.n === b.beat) : spoken[i]; if (beat) { b.start = beat.start; b.end = beat.end; b.beatN = beat.n; b.label = (beat.purpose || '').toUpperCase() + (beat.name ? ` — ${beat.name}` : ''); b.mapped = true; } });
+}
+/** The beats of STRUCTURE.md as plain numbers (best effort: a malformed beat is skipped; `check` reports it). */
+function structureBeats(proj) {
+  if (!exists(P(proj, 'Storyboard', 'STRUCTURE.md'))) return null;
+  const out = []; for (const b of parseStructure(read(P(proj, 'Storyboard', 'STRUCTURE.md'))).beats) {
+    const get = (k) => b.kv.filter(([x]) => x === k).map(([, v]) => v); const t = get('time')[0] && rangeOf(get('time')[0]);
+    if (t && t.b > t.a) out.push({n: b.n, name: b.name, start: t.a, end: t.b, purpose: (get('purpose')[0] || '').toLowerCase(), vo: (get('vo')[0] || 'yes').toLowerCase() === 'none' ? 'none' : 'yes'});
+  }
+  return out;
+}
+/** How a script line is named in a message: its number and the beat budget it is held to (the seconds come from the structure, never from the script). */
+const lineTag = (b, i) => (b.beatN ? `line ${i + 1} (beat ${b.beatN}, budget ${f2(b.start)}–${f2(b.end)} s)` : `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`);
+/** The script of a project, with each line's window taken from the structure. */
+function loadScript(proj) { return parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md')), structureBeats(proj)); }
 const NUMBER_WORDS = 'satu|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh|sebelas|belas|puluh|ratus|ribu|juta|miliar|triliun|seratus|seribu|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|million|billion';
 const CLAIM_RE = new RegExp('(\\d+(?:[.,]\\d+)?\\s*%|\\d+|\\b(?:' + NUMBER_WORDS + ')\\b|' + String.raw`\bpuluhan\b|\bratusan\b|\bribuan\b|\bjutaan\b|\bterbaik\b|\bnomor\s*1\b|\bgaransi\b|\bdijamin\b|\bterpercaya\b|\bdipercaya\b|\bterbukti\b|\bgratis\b|\bdiskon\b|\bpromo\b|\bbest\b|\bleading\b|\bguarantee[d]?\b|\btrusted\b|\bfree\b` + ')', 'gi');
 const DOMAIN_RE = /\b[a-z0-9-]+\.(?:id|com|site|io|co|net|app|dev|org|ai)\b/gi;
@@ -180,15 +219,31 @@ function checkScript(proj) {
   const E = (m) => issues.push({level: 'error', msg: m}), W = (m) => issues.push({level: 'warn', msg: m}), I = (m) => issues.push({level: 'info', msg: m});
   { const fi = folderIssues(proj, loadProject(proj).data); if (fi.any) E(`the project folder is missing: ${fi.text}. Run \`project.mjs repair <project>\` (mandatory schema: project-folder.md)`); }
   if (!exists(file)) { E('Storyboard/SCRIPT.md is missing'); return {issues, rows: []}; }
-  const {meta, blocks, claims} = parseScript(read(file));
+  const parsed = loadScript(proj); const {meta, blocks, claims} = parsed;
   const proj0 = loadProject(proj).data; const talk = narrated(proj0);
   const wps = num(meta.wps) || DEFAULT_WPS; const dur = num(meta.duration) || num(proj0.target_duration);
-  if (!blocks.length) { E('no timed blocks found; write them as "[00.0–03.0] HOOK" followed by the text'); return {issues, rows: []}; }
+  const plain = parsed.format === 'plain'; const beats = structureBeats(proj);
+  if (!blocks.length) { E(plain ? 'no lines found: write one paragraph per spoken beat of STRUCTURE.md, each opening with its emotion tag, for example "[curious] Tau nggak? ..."' : 'no timed blocks found; write them as "[00.0–03.0] HOOK" followed by the text'); return {issues, rows: []}; }
+  if (plain) {
+    // The script is only the lines. Its time budget comes from the beats of the structure, in order (or "## Beat N" above a line).
+    if (!beats?.length) { E(exists(structFile(proj)) ? 'Storyboard/STRUCTURE.md has no valid beats: each script line takes its time budget from its beat' : 'Storyboard/STRUCTURE.md is missing: each script line takes its time budget from its beat, so write the structure first'); return {issues, rows: []}; }
+    const spoken = beats.filter((b) => b.vo !== 'none'); const explicit = blocks.every((b) => b.beat);
+    if (!explicit && blocks.length !== spoken.length) { E(`the script has ${blocks.length} line(s) but STRUCTURE.md has ${spoken.length} spoken beat(s). Write one line per spoken beat, in order (or put "## Beat N" above a line; mark a beat "- vo: none" when nothing is said).`); return {issues, rows: []}; }
+    const lost = blocks.map((b, i) => (b.mapped ? 0 : i + 1)).filter(Boolean); if (lost.length) { E(`line(s) ${lost.join(', ')} point to a beat that does not exist`); return {issues, rows: []}; }
+    for (const [i, b] of blocks.entries()) {
+      const where = `line ${i + 1}`;
+      if (/\b\d{1,2}(?:[.,]\d+)?\s*[–—-]\s*\d{1,2}(?:[.,]\d+)?\s*(?:s|dtk|detik|sec)\b|\(\s*\d+(?:[.,]\d+)?\s*(?:s|dtk|detik)\s*\)/i.test(b.rawText)) E(`${where}: a time inside the line. Seconds live in STRUCTURE.md and STORYBOARD.md, never in the script.`);
+      if (/^(?:hook|tahap|beat|scene|adegan|frame|shot|segmen|bagian|purba|outro|cta|closing)\s*(?:\d+|\(|:|—|–|-)/i.test(b.text)) E(`${where}: it starts with a stage label ("${b.text.slice(0, 24)}"). The script is only what is said; labels belong to the structure.`);
+      if (/\((?:[^)]*\b(?:zoom|kamera|camera|visual|layar|tampil|scene|transisi|shot|cut to|fade)\b[^)]*)\)/i.test(b.rawText)) E(`${where}: a stage direction in brackets. What is on screen is the storyboard's, not the script's.`);
+    }
+  } else if (proj0.structure === 'yes' || beats) {
+    E('the script contains seconds ("[00.0–03.0] HOOK"). Seconds belong to STRUCTURE.md (the time budget of each beat) and STORYBOARD.md. The script is only the lines, each opening with its emotion tag, so it goes to a TTS exactly as it is.');
+  }
   if (!dur) E('script front matter needs duration');
   if (String(meta.narration || '').toLowerCase() !== (talk ? 'yes' : 'no')) E(`script front matter narration must equal PROJECT.md narration (${talk ? 'yes' : 'no'})`);
   const report = loadVoReport(proj); const rows = [];
   blocks.forEach((b, i) => {
-    const tag = `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`; const win = b.end - b.start;
+    const tag = lineTag(b, i); const win = b.end - b.start;
     if (/\b(TODO|TULIS|XXX|lorem|ipsum)\b/i.test(b.rawText) || !b.text) E(`${tag}: placeholder or empty text`);
     if (b.end <= b.start) { E(`${tag}: end must be after start`); return; }
     if (i && b.start < blocks[i - 1].end - 1e-9) E(`${tag}: overlaps the previous block (ends ${f2(blocks[i - 1].end)})`);
@@ -222,7 +277,7 @@ function checkScript(proj) {
   const v2 = proj0.structure === 'yes' || !!struct.beats; const eLevel = v2 ? E : W;
   if (struct.beats?.length) {
     blocks.forEach((b, i) => {
-      const tag = `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`;
+      const tag = lineTag(b, i);
       const beat = struct.beats.find((x) => b.start >= x.start - 0.02 && b.end <= x.end + 0.02);
       if (!beat) E(`${tag}: crosses a beat boundary of STRUCTURE.md; every block must sit inside one beat`);
       else if (talk && beat.emotion && b.tags[0]?.tag && b.tags[0].tag !== beat.emotion) W(`${tag}: delivered [${b.tags[0].tag}] but beat ${beat.n} asks for ${beat.emotion}`);
@@ -233,7 +288,7 @@ function checkScript(proj) {
   if (talk) {
     const known = vocabulary();
     blocks.forEach((b, i) => {
-      const tag = `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`;
+      const tag = lineTag(b, i);
       if (v2 && !b.tags.length) E(`${tag}: no emotion tag. Open the line with one, for example [curious] or [nostalgic]: any emotion word works (tuned presets: ${known.join(', ')})`);
       else if (v2 && b.tags[0].at !== 0) E(`${tag}: the first tag comes after word ${b.tags[0].at}; the line must open with its emotion`);
       if (b.tags.length > 2) E(`${tag}: ${b.tags.length} emotion tags in one block; at most 2 (the face changes once inside a line)`);
@@ -255,7 +310,7 @@ function checkScript(proj) {
     if (report.segments.length === blocks.length) blocks.forEach((b, i) => { const s = report.segments[i]; if (s.end > b.end + 0.05) W(`block ${i + 1}: measured speech ends ${f2(s.end)} s, after its window end ${f2(b.end)} s (storyboard windows follow the audio)`); });
     else W(`measured audio has ${report.segments.length} segments, script has ${blocks.length} blocks`);
   }
-  return {issues, rows, structure: struct.beats, meta: {wps, dur, totalWords, totalNeed, talk, report: !!report}};
+  return {issues, rows, structure: struct.beats, format: parsed.format, meta: {wps, dur, totalWords, totalNeed, talk, report: !!report}};
 }
 
 // ---------- structure (STRUCTURE.md): what the video is made of, before any word is written ----------
@@ -279,7 +334,7 @@ function checkStructure(proj) {
   const data = loadProject(proj).data; const talk = narrated(data);
   if (!exists(structFile(proj))) { if (data.structure === 'yes') E('Storyboard/STRUCTURE.md is missing (what the video is made of: beats, what each shows, the one idea per beat, the emotion)'); return {issues, beats: null}; }
   const {meta, beats: raw} = parseStructure(read(structFile(proj)));
-  const sc = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))) : null;
+  const sc = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? loadScript(proj) : null;
   const dur = num(meta.duration) || num(data.target_duration); const st = styleOf(data);
   if (!raw.length) { E('no "## Beat N — LABEL" sections found'); return {issues, beats: []}; }
   if (num(meta.duration) && num(data.target_duration) && Math.abs(num(meta.duration) - num(data.target_duration)) > 1e-9) E(`duration ${meta.duration} differs from PROJECT.md ${data.target_duration}`);
@@ -344,7 +399,7 @@ function measureVoice(proj, audio, minGap) {
   for (const [a, b] of sil) { if (a - cur > 0.05) raw.push([cur, a]); cur = b; }
   if (duration - cur > 0.05) raw.push([cur, duration]);
   const merge = (gap) => raw.reduce((acc, r) => { const l = acc.at(-1); if (l && r[0] - l[1] < gap) l[1] = r[1]; else acc.push([...r]); return acc; }, []);
-  const script = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks.filter((b) => b.text) : [];
+  const script = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? loadScript(proj).blocks.filter((b) => b.text) : [];
   let gap = minGap, speech;
   if (gap) speech = merge(gap);
   else { // find the smallest gap that gives one run per script line
@@ -403,7 +458,7 @@ function checkStoryboard(proj) {
   if (!dur) E('storyboard front matter needs duration');
   if (meta.size && proj0.size && meta.size !== proj0.size) E(`size ${meta.size} differs from PROJECT.md ${proj0.size}`);
   if (!frames.length) { E('no "## Frame N — name" sections found'); return {issues}; }
-  const report = talk ? loadVoReport(proj) : null; const wps = (exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? num(parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).meta.wps) : 0) || DEFAULT_WPS;
+  const report = talk ? loadVoReport(proj) : null; const wps = (exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? num(loadScript(proj).meta.wps) : 0) || DEFAULT_WPS;
   const plan = []; const vos = [], zooms = [], curs = [], cues = [];
   frames.forEach((fr, i) => {
     const tag = `Frame ${fr.n}${fr.name ? ' (' + fr.name + ')' : ''}`;
@@ -509,7 +564,7 @@ function checkStoryboard(proj) {
   vos.sort((a, b) => a.start - b.start);
   vos.forEach((v, k) => { if (k && v.start < vos[k - 1].end - 1e-9) E(`vo ${f2(v.start)}–${f2(v.end)} overlaps the previous vo (ends ${f2(vos[k - 1].end)})`); });
   if (talk) {
-    const sc = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))) : null;
+    const sc = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? loadScript(proj) : null;
     if (sc) {
       const a = norm(vos.map((v) => v.text).join(' ')), b = norm(sc.blocks.map((x) => x.text).join(' '));
       let d = 0; while (d < a.length && d < b.length && a[d] === b[d]) d++;
@@ -541,7 +596,7 @@ function checkStoryboard(proj) {
     }
   }
   // on-screen text is held to the same claims rule as the spoken script
-  const sc2 = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).claims : [];
+  const sc2 = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? loadScript(proj).claims : [];
   for (const p of plan) for (const x of p.text) for (const t of claimTerms(x.text)) if (!claimCovered(t, sc2)) E(`Frame ${p.id}: on-screen "${x.text.slice(0, 40)}" contains the claim, number or domain "${t}" with no row in SCRIPT.md "## Claims"`);
   // zoom order and gaps
   zooms.sort((a, b) => a.start - b.start);
@@ -580,7 +635,7 @@ function checkStoryboard(proj) {
 // The script hash covers timing and words only, so updating a claim's status or a note does not cancel the approvals.
 const hashScript = (proj) => {
   if (!exists(P(proj, 'Storyboard', 'SCRIPT.md'))) return '';
-  const blocks = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks; const hs = hashStructure(proj);
+  const blocks = loadScript(proj).blocks; const hs = hashStructure(proj);
   // The delivery (emotion tags) and the structure are part of what the user approves; a script without either hashes exactly as before.
   return sha(blocks.map((b) => `${b.start}-${b.end}${b.tags.length ? ' ' + b.tags.map((t) => `${t.raw.toLowerCase().replace(/\s+/g, ' ')}@${t.at}`).join(',') : ''} ${b.text}`).join('\n') + (hs ? '\n#structure ' + hs : ''));
 };
@@ -601,7 +656,7 @@ function accState(proj, gate, data) {
   }
   return a.status;
 }
-function placeholders(proj) { return exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).claims.filter((c) => c.status === 'placeholder') : []; }
+function placeholders(proj) { return exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? loadScript(proj).claims.filter((c) => c.status === 'placeholder') : []; }
 const hasMp4 = (d) => exists(d) && fs.readdirSync(d).some((f) => /\.(mp4|webm|mov|gif)$/i.test(f));
 function gate(proj, action) {
   const {data} = loadProject(proj); const talk = narrated(data); const why = [];
@@ -627,6 +682,7 @@ function printIssues(issues) {
   return e;
 }
 function printScriptTable(r) {
+  if (r.format === 'plain') out('  LINE BUDGETS (the seconds are STRUCTURE.md\'s time budget for each line; the script itself holds none, and this table is for you, not for the user\'s script):');
   out('  #  window            win(s)  words  need(s)  max words  emotion');
   for (const x of r.rows) out(`  ${String(x.i).padStart(1)}  ${f2(x.start).padStart(5)}–${f2(x.end).padEnd(6)}   ${f2(x.win).padStart(5)}  ${String(x.words).padStart(5)}  ${f2(x.need).padStart(7)}  ${String(x.room).padStart(8)}  ${(x.emotion || '-').padEnd(14)}${x.need > x.win ? '<- too long' : ''}`);
   if (r.meta) out(`  total ${r.meta.totalWords} words, ~${f2(r.meta.totalNeed)} s of ${r.meta.dur ? f2(r.meta.dur) : '?'} s at ${r.meta.wps} words/s${r.meta.report ? '' : ' (estimate until the audio is measured)'}`);
@@ -677,7 +733,7 @@ function writePlan(proj, r, data) {
 const voScriptText = (blocks) => blocks.map((b) => b.rawText.replace(/\s+/g, ' ').trim()).join('\n\n') + '\n';
 /** Asset/agen/vo.txt (clean words, one line per block) and vo-lines.json (every engine's version of each line, from the emotion tags). `engine` also writes lines/lineN.txt. */
 function writeVoLines(proj, engine) {
-  const blocks = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks.filter((b) => b.text); const dir = P(proj, 'Asset', 'agen'); fs.mkdirSync(dir, {recursive: true});
+  const blocks = loadScript(proj).blocks.filter((b) => b.text); const dir = P(proj, 'Asset', 'agen'); fs.mkdirSync(dir, {recursive: true});
   const dflt = loadEmotions().default;
   const lines = blocks.map((b, i) => {
     const tags = b.tags.filter((t) => t.tag); const tag = tags[0]?.tag || dflt; const mods = tags[0]?.mods || [], also = tags[0]?.also || [];
@@ -776,7 +832,7 @@ const COMMANDS = {
       out('\n================ VO SCRIPT (copy-ready; the file is Asset/agen/vo-script.txt) ================');
       process.stdout.write(read(P(proj, 'Asset', 'agen', 'vo-script.txt')));
       out('================ end of VO SCRIPT ================');
-      out('\nAt this stop show the user TWO separate things: (1) the structure table, (2) the VO SCRIPT above in a code block, exactly as printed. Nothing else is mixed in:\n  - the VO script holds no times, scene directions, labels or notes (it is what they take to any TTS, or read into a microphone);\n  - zoom highlights, cursor, transitions and what is on screen second by second are the STORYBOARD: explain them at Gate 2 (`explain`), not now;\n  - never ask how long their audio is: `vo` / `vo-split` measure it from the file.');
+      out('\nAt this stop show the user TWO separate things: (1) the structure table, (2) the VO SCRIPT above in a code block, exactly as printed. Nothing else is mixed in:\n  - the VO script holds no times, scene directions, labels or notes (it is what they take to any TTS, or read into a microphone). Do not paste the LINE BUDGETS table beside it: that table is a check for you;\n  - zoom highlights, cursor, transitions and what is on screen second by second are the STORYBOARD: explain them at Gate 2 (`explain`), not now;\n  - never ask how long their audio is: `vo` / `vo-split` measure it from the file.');
     } else {
       out('\n================ STORYBOARD, in plain words (`project.mjs explain` prints this again) ================'); explainStoryboard(proj);
       out('\nAt this stop explain ONLY the storyboard, from the walkthrough above: per frame what is on screen, the zoom highlights, the cursor and narrator moments, the transitions, and the files still needed from the user. Do not repeat the script.');
@@ -810,7 +866,7 @@ const COMMANDS = {
     const proj = findProject(pos[0], opt); const {data} = loadProject(proj);
     if (!narrated(data)) die('narration is off for this project');
     const why = gate(proj, 'voice'); if (why.length) die('blocked: ' + why.join('; '));
-    const sc = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))); const blocks = sc.blocks.filter((b) => b.text);
+    const sc = loadScript(proj); const blocks = sc.blocks.filter((b) => b.text);
     const lead = opt.lead === undefined ? 0.1 : num(opt.lead); const dur = num(sc.meta.duration) || num(data.target_duration);
     const GAP = 0.35, TAIL = 0.5;
     const dir = P(proj, 'Asset', 'agen'); const files = [], missing = [];
@@ -889,7 +945,7 @@ const COMMANDS = {
   'vo-script'(pos, opt) {
     const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project');
     if (!exists(P(proj, 'Storyboard', 'SCRIPT.md'))) die('Storyboard/SCRIPT.md is missing');
-    const sc = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))); const blocks = sc.blocks.filter((b) => b.text); if (!blocks.length) die('the script has no lines');
+    const sc = loadScript(proj); const blocks = sc.blocks.filter((b) => b.text); if (!blocks.length) die('the script has no lines');
     const bad = blocks.filter((b) => b.tags.some((t) => t.typos.length)).length; if (bad) die(`${bad} line(s) carry a misspelled tag; run \`check script\` first`);
     fs.mkdirSync(P(proj, 'Asset', 'agen'), {recursive: true}); const text = voScriptText(blocks); fs.writeFileSync(P(proj, 'Asset', 'agen', 'vo-script.txt'), text); process.stdout.write(text);
   },

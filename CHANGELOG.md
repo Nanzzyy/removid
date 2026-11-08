@@ -2,6 +2,9 @@
 
 `node skills/removid/scripts/project.mjs version` prints the version the agent is actually running, and whether it is behind `origin/main`.
 
+## 0.8.0
+- **The script has no seconds.** `SCRIPT.md` is only the lines (one paragraph per spoken beat, each opening with its emotion tag); the time budget of each line comes from its beat in `STRUCTURE.md`, the exact seconds live in the storyboard. `check script` rejects seconds, stage labels and "(zoom ...)" directions in a project that has a structure. Older timed scripts are still read.
+
 ## 0.7.0
 - Emotions are an open vocabulary: 18 tuned presets, about 160 lexicon words (English, Indonesian), families scaled by intensity, a project's own `Storyboard/emotions.custom.json`. A new word is a warning, a misspelling an error.
 - `SKILL.md` front matter is valid YAML (the unquoted `scene: UI` broke GitHub and strict parsers).

@@ -1,6 +1,6 @@
 # Structure: what the video is made of
 
-The structure comes **before the script** and the script is its expression in words. It answers, in one table, what the viewer sees and learns beat by beat, so the script, the voice, the storyboard and every cut start from the same plan instead of each agent improvising its own.
+The structure comes **before the script** and the script is its expression in words. The structure is where the video's **time budget** lives (each beat's window); the script holds no seconds at all, so it can go to a TTS as it is. It answers, in one table, what the viewer sees and learns beat by beat, so the script, the voice, the storyboard and every cut start from the same plan instead of each agent improvising its own.
 
 File: `Storyboard/STRUCTURE.md` (template in `templates/project/STRUCTURE.md`). It is approved together with the script at Gate 1 (one stop, not two): changing it afterwards makes the script and everything after it stale.
 

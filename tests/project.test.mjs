@@ -62,13 +62,11 @@ test('the tightened script passes and reports the placeholder', () => {
 });
 test('script mutants are rejected', () => {
   const m = (from, to, re) => { const d = project(); edit(SC(d), from, to); const r = run('check', 'script', d); assert.equal(r.code, 1, `${from} -> ${to}\n${r.out}`); assert.match(r.out, re); };
-  m('UMKM kamu sudah punya website?', 'UMKM kamu sudah punya website sendiri belum atau masih pakai cara lama?', /HOOK: needs/);
-  m('[03.0–08.0] PROBLEM', '[02.0–08.0] PROBLEM', /overlaps the previous block/);
+  m('UMKM kamu sudah punya website?', 'UMKM kamu sudah punya website sendiri belum atau masih pakai cara lama?', /line 1 \(beat 1, budget 0\.00–3\.00 s\): needs/);
   m('Tampil rapi di mata pelanggan.', 'Tampil rapi untuk tiga juta pelanggan.', /"juta" is a claim/); // numbers spelled out count as claims too
   m('Tampil rapi di mata pelanggan.', 'TODO', /placeholder or empty/);
   m('| gratis | owner-confirmed |', '| terbaik | owner-confirmed |', /"gratis" is a claim/);
   m('| prvtech.id | placeholder |', '| prvtech.id | guessed |', /status must be one of/);
-  m('[25.0–30.0] CTA', '[25.0–31.0] CTA', /after the target duration/);
   m('narration: yes', 'narration: no', /narration must equal/);
 });
 

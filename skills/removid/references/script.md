@@ -8,23 +8,24 @@ File: `Storyboard/SCRIPT.md`. Check: `project.mjs check script <proj>`. Gate 1 f
 
 The brief and `intake` (`intake.md`) already settled what can be asked; the **structure** (`structure.md`) already fixed the beats, their times, the one idea of each and its emotion. The script is that plan in words: every block sits inside one beat. What can be proven (numbers, clients, testimonials, offers, the domain) goes in `## Claims` first. A user-supplied script is the user's: keep every word, report the numbers, and offer a tightened version only as a separate suggestion.
 
-## Format
+## Format: the script is only what is said
 
 ```
 ---
 title: promo-umkm
 language: id-ID
-narration: yes            # no = the blocks are on-screen copy
-duration: 30
+narration: yes            # no = the paragraphs are on-screen copy
 wps: 2.4                  # spoken words per second, speech only; replaced by the measured audio
 platform: Reels
 message: one sentence the viewer should remember
 ---
-[00.0–03.0] HOOK
-UMKM kamu sudah punya website?
+# Script
 
-[03.0–08.0] PROBLEM
-Usaha kecil sulit berkembang kalau terlihat kurang profesional.
+[curious] UMKM kamu sudah punya website?
+
+[serious] Usaha kecil sulit berkembang kalau terlihat kurang profesional.
+
+[excited, emphatic] Yuk, kunjungi prvtech.id, konsultasi gratis!
 
 ## Claims
 | claim | status | source |
@@ -32,9 +33,11 @@ Usaha kecil sulit berkembang kalau terlihat kurang profesional.
 | prvtech.id | placeholder | domain not confirmed |
 ```
 
-Each block is `[start–end] LABEL` and then only the words that are said. Direction, music and visuals belong to the storyboard. Gaps between blocks are visual-only beats.
+**There is no time anywhere in the script**: no `[00.0–03.0]`, no "(3–9s)", no stage label ("Tahap 1", "Hook:"), no "(zoom ke api)". Those are STRUCTURE.md (the time budget of each beat) and STORYBOARD.md (the exact seconds, what is on screen, the zooms). What is left is a file that a TTS or a microphone can receive exactly as it is, emotions included. `check script` rejects seconds, labels and directions in a project that has a structure, and says where they belong.
 
-**Open each narrated block with its emotion tag** (`[curious] UMKM kamu sudah punya website?`; with a delivery word when it helps: `[thoughtful, slower]`). It is the delivery: it sets how the line is spoken, how the narrator's face acts and which gestures fit (`emotion-and-voice.md`). At most 2 per block, each covering 0.8 s or more; never spoken, never counted as words; part of what Gate 1 approves. The user takes the lines, and only the lines, as `Asset/agen/vo-script.txt` (`emotion-and-voice.md`, "The clean voice script").
+One paragraph per **spoken** beat of STRUCTURE.md, in the same order, a blank line between; a beat marked `- vo: none` has no paragraph (or put `## Beat 3` above a paragraph to be explicit). Each line's time budget is its beat's window, so `check script` still computes whether the words fit, without the seconds being written in the script. Every paragraph opens with its emotion tag (below); delivery words follow a comma.
+
+Older projects with `[00.0–03.0] LABEL` headers are still read (a project without a STRUCTURE.md keeps working); a new project never uses them.
 
 ## The numbers (the checker computes them; do not eyeball)
 
@@ -49,7 +52,7 @@ Each block is `[start–end] LABEL` and then only the words that are said. Direc
 | Last block | has a call to action |
 | Silent video | each on-screen block needs max(1 s, 0.3 s × words) |
 
-Overflow is an error, not a note: cut words or widen the window, then check again. The estimate is only an estimate: the draft in `tests/fixtures/prvtech-30s/SCRIPT.original.md` (73 words, a domain read aloud as three) needs about 37 s at 2.0 words/s but about 31 s at 2.4 and would just fit at the 2.75 measured later, with no room to breathe. The decision comes from the measured audio, not from the default.
+Overflow is an error, not a note: cut words or widen the beat in STRUCTURE.md, then check again. The estimate is only an estimate: the draft in `tests/fixtures/prvtech-30s/SCRIPT.original.md` (73 words, a domain read aloud as three) needs about 37 s at 2.0 words/s but about 31 s at 2.4 and would just fit at the 2.75 measured later, with no room to breathe. The decision comes from the measured audio, not from the default.
 
 ## Shape by length
 

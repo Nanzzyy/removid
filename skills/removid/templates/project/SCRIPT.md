@@ -2,7 +2,6 @@
 title: {{slug}}
 language: id-ID
 narration: {{narration}}
-duration: {{duration}}
 wps: {{wps}}
 platform: TODO
 message: TODO one sentence the viewer should remember
@@ -10,16 +9,17 @@ message: TODO one sentence the viewer should remember
 # Script: {{slug}}
 
 <!--
-One block per beat: "[start–end] LABEL", then the exact words, nothing else (no stage directions). Each block sits inside one beat of STRUCTURE.md.
-Narrated: open every block with its emotion tag, e.g. "[curious] Bagaimana ini berubah jadi kamu?" (any emotion word works: 18 tuned presets such as curious, mad, sad, laugh, afraid, tired, and a wide lexicon such as furious, nostalgic, gembira; delivery words follow a comma: [thoughtful, slower]).
-A second tag may change the delivery mid-line, at most 2 per block, each covering 0.8 s+. Tags are not spoken and not counted as words.
-Times are seconds from 0 and are TARGETS until the voice is recorded; after that the measured audio wins.
-narration: yes  -> blocks are spoken words; `project.mjs check script` computes how long each takes.
-narration: no   -> blocks are on-screen copy; each needs max(1 s, 0.3 s per word).
+THE SCRIPT IS ONLY WHAT IS SAID. No seconds, no labels, no scene directions, no zoom notes: those are STRUCTURE.md (the time budget of each
+beat) and STORYBOARD.md. This file is what a TTS or a microphone receives, line by line.
+
+One paragraph per SPOKEN beat of STRUCTURE.md, in the same order, a blank line between. Each opens with its emotion tag: any emotion word works,
+and delivery words follow a comma, e.g. "[curious] Pernah merasa... AI selalu punya jawaban?", "[thoughtful, slower] ...", "[nostalgic] ...".
+A beat marked "- vo: none" has no paragraph. To be explicit put "## Beat 3" above a paragraph.
+narration: yes -> the paragraphs are spoken words; `project.mjs check script` computes how long each takes against its beat.
+narration: no  -> the paragraphs are on-screen copy; each needs max(1 s, 0.3 s per word).
 Every number, superlative, offer ("gratis"), testimonial and domain must have a row under ## Claims.
 -->
 
-[00.0–03.0] HOOK
 [curious] TODO
 
 ## Claims

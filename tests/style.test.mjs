@@ -149,8 +149,8 @@ test('the structure fixture passes; structure mutants are rejected', () => {
 });
 test('a script block must sit inside one beat and open with its emotion', () => {
   const m = (from, to, re) => { const d = project(); edit(SC(d), from, to); const r = run('check', 'script', d); assert.equal(r.code, 1, `${from} -> ${to}\n${r.out}`); assert.match(r.out, re); };
-  m('[03.0–08.0] PROBLEM', '[02.0–08.0] PROBLEM', /crosses a beat boundary/);
-  m('[00.0–03.0] HOOK\n[warm] UMKM', '[00.0–03.0] HOOK\nUMKM', /block 1 .* no emotion tag/);
+  m('\n\n[serious] Usaha', '\n\n[warm] Satu lagi.\n\n[serious] Usaha', /the script has 7 line\(s\) but STRUCTURE\.md has 6 spoken beat/);
+  m('[warm] UMKM', 'UMKM', /line 1 .* no emotion tag/);
   m('[serious] Usaha kecil', 'Usaha kecil [serious] sulit', /the first tag comes after word|no emotion tag/);
   m('[proud] PrvTech', '[prowd] PrvTech', /\[prowd\]: "prowd" looks like a misspelling of "proud"/);
   m('[excited] Dari toko online, sistem kasir, sampai laporan keuangan, sesuai kebutuhan bisnismu.', '[excited] Dari toko online, [calm] sistem kasir, [sad] sampai laporan keuangan, sesuai kebutuhan bisnismu.', /3 emotion tags in one block/);
@@ -202,8 +202,6 @@ test('check storyboard: the style is required, and its limits are enforced', () 
   r = run('check', 'storyboard', straddle); assert.match(r.out, /vo|ERROR/, 'moving a frame edge is caught somewhere'); assert.equal(r.code, 1);
 });
 test('a frame may split a beat but never straddle its boundary', () => {
-  const d = project(); edit(ST(d), '- time: 3.0–8.0', '- time: 3.0–7.0'); edit(ST(d), '- time: 8.0–14.0', '- time: 7.0–14.0');
-  const r = run('check', 'script', d); assert.equal(r.code, 1); assert.match(r.out, /crosses a beat boundary/);
   const e = project(); const t = fs.readFileSync(ST(e), 'utf8').replace('- time: 21.0–25.0', '- time: 21.0–24.0').replace('- time: 25.0–30.0', '- time: 24.0–30.0'); fs.writeFileSync(ST(e), t);
   const x = run('check', 'storyboard', e); assert.equal(x.code, 1); assert.match(x.out, /beat 5 \(payoff\) ends at 24\.00 s, inside a storyboard frame/);
 });
@@ -463,6 +461,33 @@ test('the skill carries a version, a changelog that matches it, and a command th
 test('SKILL.md starts with the rules whose absence produced the wrong flow in a real session', () => {
   const t = fs.readFileSync(path.join(SK, 'SKILL.md'), 'utf8'); const body = t.slice(t.indexOf('# removid')); const start = body.indexOf('## Start here'); assert.ok(start >= 0 && start < body.indexOf('## Defaults'), 'Start here comes before everything else');
   const block = body.slice(start, body.indexOf('## Defaults'));
-  for (const must of ['project.mjs version', 'BEHIND', 'Draft nothing in chat', 'VO SCRIPT', 'Tahap 1', 'no zoom ideas', 'Never ask where the user\'s audio is', 'messages.md']) assert.ok(block.includes(must), `Start here must say: ${must}`);
+  for (const must of ['project.mjs version', 'BEHIND', 'Draft nothing in chat', 'VO SCRIPT', 'Tahap 1', 'no zoom ideas', 'has no seconds at all', 'Never ask where the user\'s audio is', 'messages.md']) assert.ok(block.includes(must), `Start here must say: ${must}`);
   assert.ok(t.split('\n').length <= 100, 'SKILL.md stays under 100 lines');
+});
+
+// ---------- the script has no seconds ----------
+test('the script holds only what is said: no seconds, labels or directions, and it goes to a TTS as it is', () => {
+  const body = (d) => fs.readFileSync(SC(d), 'utf8').split('## Claims')[0].replace(/^---[\s\S]*?---\n/, '');
+  for (const proj of [project(), aiProject()]) { const b = body(proj); assert.ok(!/\d\s*[–-]\s*\d|\bdetik\b|\d\s*s\b/.test(b.replace(/^# .*$/m, '')), 'no seconds in the shipped fixtures'); assert.ok(b.trim().split(/\n\s*\n/).every((p) => /^(#.*\n\n)?\[[a-z, ]+\] /.test(p.trim()) || /^# /.test(p.trim()))); }
+  const m = (from, to, re) => { const d = project(); edit(SC(d), from, to); const r = run('check', 'script', d); assert.equal(r.code, 1, `${from} -> ${to}\n${r.out}`); assert.match(r.out, re); };
+  m('[warm] UMKM kamu sudah punya website?', '[00.0–03.0] HOOK\n[warm] UMKM kamu sudah punya website?', /contains seconds .*Seconds belong to STRUCTURE\.md/);
+  m('UMKM kamu sudah punya website?', 'UMKM kamu sudah punya website? (3–9s)', /a time inside the line/);
+  m('[warm] UMKM', '[warm] Tahap 1: UMKM', /starts with a stage label/);
+  m('[warm] UMKM', '[warm] Hook (0–3s): UMKM', /a time inside the line|stage label/);
+  m('Tampil rapi di mata pelanggan.', 'Tampil rapi (zoom ke laptop) di mata pelanggan.', /a stage direction in brackets/);
+  m('[warm] UMKM', 'Tahap 1 [warm] UMKM', /the first tag comes after word|stage label/);
+  // the budget still comes from the structure, so a line that does not fit its beat is still caught
+  const d = project(); edit(ST(d), '- time: 0.0–3.0', '- time: 0.0–1.0'); edit(ST(d), '- time: 3.0–8.0', '- time: 1.0–8.0'); const r = run('check', 'script', d); assert.equal(r.code, 1); assert.match(r.out, /line 1 \(beat 1, budget 0\.00–1\.00 s\): needs ~2\.\d\d s but the window is 1\.00 s/);
+  // old projects that never had a structure keep working with their timed script
+  const old = project(); fs.rmSync(ST(old)); const pm = path.join(old, 'PROJECT.md'); fs.writeFileSync(pm, fs.readFileSync(pm, 'utf8').replace('structure: yes\n', '')); fs.copyFileSync(path.join(FIX, 'SCRIPT.timed.md'), SC(old));
+  const o = run('check', 'script', old); assert.equal(o.code, 0, o.out); assert.ok(!/contains seconds/.test(o.out), 'a legacy project is not nagged');
+  // and the same timed file in a NEW project is an error that says where the seconds go
+  const nu = project(); fs.copyFileSync(path.join(FIX, 'SCRIPT.timed.md'), SC(nu)); const n2 = run('check', 'script', nu); assert.equal(n2.code, 1); assert.match(n2.out, /contains seconds/);
+  // the printed VO SCRIPT has no seconds either, and the file is the same text as the script's lines
+  const s = run('submit', 'script', project()); assert.equal(s.code, 0, s.out); const vo = s.out.split('================ VO SCRIPT')[1].split('================ end of VO SCRIPT')[0]; assert.ok(!/\d\s*[–-]\s*\d|\bdetik\b/.test(vo));
+});
+test('a new project\'s SCRIPT.md template is the plain format', () => {
+  const root = path.join(tmp, 'tpl' + n++); assert.equal(run('new', 'T', 'x', '--root', root, '--narration', 'yes', '--brief', 'x').code, 0); const d = path.join(root, 'T', fs.readdirSync(path.join(root, 'T'))[0]); const t = fs.readFileSync(path.join(d, 'Storyboard/SCRIPT.md'), 'utf8');
+  assert.ok(!/\[\d\d\.\d/.test(t) && !/^duration:/m.test(t), 'no seconds in the template'); assert.match(t, /THE SCRIPT IS ONLY WHAT IS SAID/); assert.match(t, /^\[curious\] TODO$/m);
+  const r = run('check', 'script', d); assert.equal(r.code, 1); assert.match(r.out, /placeholder or empty|TODO/);
 });
