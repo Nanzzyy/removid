@@ -639,12 +639,12 @@ const COMMANDS = {
     const [brand, slug] = pos; if (!brand || !slug) die('usage: new <Brand> <slug> --brief "the user\'s own words" [options]', 2);
     if (!/^[A-Za-z0-9][\w-]*$/.test(brand) || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) die('Brand: letters/digits/-/_; slug: lowercase letters, digits and dashes', 2);
     if (!opt.brief || opt.brief === true) die('--brief is required: the user\'s request in their own words (no paraphrase, nothing added)', 2);
-    const type = opt.type || 'motion', format = opt.format || 'landscape', narration = String(opt.narration || 'no').toLowerCase();
+    const sty = opt.style && opt.style !== true ? resolveStyle(opt.style) : null;
+    if (opt.style && !sty) die(`unknown style "${opt.style}". \`project.mjs style --list\` shows the 36 styles and their aliases.`, 2);
+    const type = opt.type || (sty && sty.category === 'video-editor' ? 'footage' : 'motion'), format = opt.format || 'landscape', narration = String(opt.narration || 'no').toLowerCase();
     const character = String(opt.character === undefined || opt.character === true ? (narration === 'yes' ? 'undecided' : 'none') : opt.character).toLowerCase();
     if (!/^(none|undecided|[a-z][a-z0-9-]*)$/.test(character)) die('--character: a character id (lowercase letters, digits, dashes), none (voice only) or undecided', 2);
     if (!['motion', 'footage'].includes(type) || !SIZES[format] || !['yes', 'no'].includes(narration)) die('--type motion|footage, --format landscape|portrait|square, --narration yes|no', 2);
-    const sty = opt.style && opt.style !== true ? resolveStyle(opt.style) : null;
-    if (opt.style && !sty) die(`unknown style "${opt.style}". \`project.mjs style --list\` shows the 36 styles and their aliases.`, 2);
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, ''); const proj = path.join(rootDir(opt), brand, `${date}-${slug}`);
     if (exists(proj)) die(`already exists: ${proj}`);
     for (const d of ['Reference', 'Storyboard', 'Asset/owner', 'Asset/agen', 'Asset/scenes', 'Source/remotion', 'Source/hyperframes', 'Result', ...(type === 'footage' ? ['Raw-Footage'] : [])]) fs.mkdirSync(P(proj, d), {recursive: true});
@@ -656,7 +656,7 @@ const COMMANDS = {
     const body = `# ${slug}\n\n## Brief (the user's own words, do not paraphrase)\n> ${String(opt.brief).replace(/\n/g, '\n> ')}\n\n## Goal, audience, CTA\n-\n\n## Final decisions (do not reopen on revisions)\n-\n\n## History\n- ${now()} — project created (${type}, ${format} ${SIZES[format]}, ${dur}s, ${FPS} fps, narration ${narration})\n`;
     saveProject(proj, data, body);
     if (sty) fs.writeFileSync(P(proj, 'Storyboard', 'style.json'), JSON.stringify(sty, null, 1) + '\n');
-    out(`created ${proj}\nstyle: ${sty ? sty.name : 'undecided (project.mjs style --for "<brief>", then set-style)'}\nnext: write Storyboard/STRUCTURE.md (the beats), ${narration === 'yes' ? 'then SCRIPT.md, `check script`, `submit script`, and STOP for the user (Gate 1 = structure + script)' : 'then STORYBOARD.md'}`);
+    out(`created ${proj}\nstyle: ${sty ? sty.name : 'undecided (project.mjs style --for "<brief>", then set-style)'}\nnext: ${type === 'footage' ? 'put the clips in Raw-Footage/ and name the part each beat uses in STRUCTURE.md; ' : ''}write Storyboard/STRUCTURE.md (the beats), ${narration === 'yes' ? 'then SCRIPT.md, `check script`, `submit script`, and STOP for the user (Gate 1 = structure + script)' : 'then STORYBOARD.md'}`);
   },
   status(pos, opt) {
     const list = [];
@@ -771,18 +771,21 @@ const COMMANDS = {
     printVoice(proj, outFile, 0, {report, script: blocks});
   },
   intake(pos, opt) {
-    const brief = pos.join(' ').trim(); if (!brief) die('usage: intake "<the user\'s brief in their own words>" [--json]', 2);
-    const r = intakeBrief(brief);
-    if (opt.json) { out(JSON.stringify(r, null, 1)); return; }
+    const brief = pos.join(' ').trim(); if (!brief) die('usage: intake "<the user\'s brief in their own words>" [--category motion-graphics|video-editor|motion-3d] [--json]', 2);
+    const r = intakeBrief(brief); const cat = opt.category && opt.category !== true ? String(opt.category) : r.read.category;
+    if (cat && !r.round2[cat]) die(`--category must be one of ${Object.keys(r.round2).join(', ')}`, 2);
+    if (opt.json) { out(JSON.stringify(opt.category ? {...r, questions: r.round2[cat]} : r, null, 1)); return; }
+    const show = (qs) => qs.forEach((q, i) => { out(`  ${i + 1}. [${q.header}]${q.multiSelect ? ' (choose any)' : ''} ${q.question}`); q.options.forEach((o) => out(`       - ${o.label}: ${o.description}`)); });
+    if (opt.category) { out(`ROUND 2 for ${cat}: ask these in ONE batch (the style of that category, then its technical needs):`); show(r.round2[cat]); return; }
     out('KNOWN from the brief:'); (r.known.length ? r.known : [{field: '-', value: 'nothing explicit', from: ''}]).forEach((k) => out(`  ${String(k.field).padEnd(12)} ${k.value}   (${k.from})`));
     out('\nASSUMED (state in one line, the user corrects at Gate 1; do not ask):'); r.assumed.forEach((a) => out(`  ${String(a.field).padEnd(12)} ${a.value}   (${a.why})`));
-    out(r.questions.length ? `\nASK (${r.questions.length} question(s), ONE batch, recommended answer first):` : '\nASK: nothing. Create the project and start the structure.');
-    r.questions.forEach((q, i) => { out(`  ${i + 1}. [${q.header}] ${q.question}`); q.options.forEach((o) => out(`       - ${o.label}: ${o.description}`)); });
+    out(r.questions.length ? `\nROUND 1 (${r.questions.length} question(s), ONE batch, recommended answer first):` : '\nROUND 1: nothing to ask.'); show(r.questions);
+    out(cat ? `\nROUND 2 follows, for ${cat}: \`intake "<brief>" --category ${cat}\` prints it (the style of that category and its technical needs).` : '\nROUND 2 follows once the type of video is known: `intake "<brief>" --category <the answer>` prints the style of that category and its technical needs.');
   },
   style(pos, opt) {
     const {styles} = loadStyles();
-    if (opt.for) { const rec = recommend(String(opt.for), {n: 3}); out(`styles for "${String(opt.for).slice(0, 70)}":`); rec.forEach((r, i) => out(`  ${i + 1}. ${r.style.name.padEnd(20)} ${r.style.category.padEnd(16)} ${r.style.about}${r.why.length ? `  [matches: ${r.why.join(', ')}]` : ''}`)); return; }
-    if (!pos[0] || opt.list) { for (const c of ['motion-3d', 'motion-graphics', 'video-editor']) { out(`${c}:`); Object.values(styles).filter((x) => x.category === c).forEach((x) => out(`  ${x.name.padEnd(20)} ${x.about}`)); } return; }
+    if (opt.for) { const rec = recommend(String(opt.for), {n: 3, category: opt.category && opt.category !== true ? String(opt.category) : undefined}); out(`styles for "${String(opt.for).slice(0, 70)}":`); rec.forEach((r, i) => out(`  ${i + 1}. ${r.style.name.padEnd(20)} ${r.style.category.padEnd(16)} ${r.style.about}${r.why.length ? `  [matches: ${r.why.join(', ')}]` : ''}`)); return; }
+    if (!pos[0] || opt.list) { for (const c of ['motion-3d', 'motion-graphics', 'video-editor'].filter((c) => !opt.category || opt.category === c)) { out(`${c}:`); Object.values(styles).filter((x) => x.category === c).forEach((x) => out(`  ${x.name.padEnd(20)} ${x.about}`)); } return; }
     const x = resolveStyle(pos.join(' ')); if (!x) die(`unknown style "${pos.join(' ')}". Try \`style --list\`.`);
     out(`${x.name} (${x.category}, built with ${x.build})\n  ${x.about}\n  look:    ${x.look}\n  motion:  ${x.motion}\n  camera:  ${x.camera}\n  audio:   ${x.audio}\n  avoid:   ${x.avoid.join('; ')}\n  palette: bg ${x.palette.bg}  text ${x.palette.fg}  accent ${x.palette.accent}  accent2 ${x.palette.accent2}  muted ${x.palette.muted}\n  rhythm:  a shot every ${x.shotSec[0]}-${x.shotSec[1]} s, transition ${x.transition.kind}${x.transition.sec ? ' ' + x.transition.sec + ' s' : ''}, zoom up to ${x.zoomMax}x, on-screen text up to ${x.maxWords} words, at most ${x.gestures} narrator gestures per 10 s${x.stepFps ? `, poses stepped at ${x.stepFps} fps` : ''}\n  ease:    enter ${x.ease.enter}, move ${x.ease.move}\n  sfx:     ${x.sfx.join(', ') || 'none'}${x.fit ? `\n  character: ${x.fit}` : ''}`);
   },

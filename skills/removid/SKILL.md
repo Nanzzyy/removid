@@ -25,7 +25,7 @@ Never author scenes in HyperFrames HTML, and never port Remotion work into Hyper
 
 | # | Step | Command / file | Stop? |
 | --- | --- | --- | --- |
-| 1 | Intake: read the brief, ask the few open questions | `intake "<brief>" --json` | the questions, once |
+| 1 | Intake: round 1 (type of video, format, voice), round 2 (style of that type, technical needs) | `intake "<brief>" --json`, then `--category <type>` | the questions, two short rounds |
 | 2 | Project + style | `new ... --style X` or `style --for`, `set-style` | |
 | 3 | Structure, then script with emotions | `Storyboard/STRUCTURE.md`, `SCRIPT.md`, `check script`, `submit script` | **Gate 1** |
 | 4 | Voice (agent default, local server, or the user's audio) | `voice-check`, `vo-lines`, `vo-synth`, `vo-place` | |
@@ -37,9 +37,9 @@ Never author scenes in HyperFrames HTML, and never port Remotion work into Hyper
 
 `project.mjs status <proj>` always says where a project stands and what comes next. The numbered list below explains each step.
 
-## Interview: one batch, at most four questions
+## Interview: two short rounds
 
-Run `project.mjs intake "<the user's words>" --json` first. It reads the brief and returns what is **known** (never ask it again), what is **assumed** (say it in one line; the user corrects it at Gate 1) and **the questions still worth asking**, recommended answer first: format and length, the style (three that fit the topic), voice and character, and proof (only when the brief has numbers, offers or a domain). Ask exactly those in one call; if there are none, ask nothing. Never ask for the hook, structure, call to action, fonts, fps or voice engine: propose them in the structure, where the user judges a real table. A script the user already wrote is theirs: keep every word. Never invent a voice, a logo, a client or a number, and never send the script to a service the user has not accepted. Details: `references/intake.md`.
+Run `project.mjs intake "<the user's words>" --json` first. It reads the brief and returns what is **known** (never ask it again), what is **assumed** (say it in one line; the user corrects it at Gate 1) and the questions still worth asking, recommended answer first. **Round 1** (one call, at most four): the **type of video** (motion graphics, video editing from footage, or motion 3D), format and length, voice and character, proof (only when the brief has numbers, offers or a domain). **Round 2** (one call, after the type is known; `intake "<brief>" --category <type> --json`): the **style of that category** (three that fit, others by name) and its **technical needs** (footage, brand kit, captions, music, data). Questions the brief already answers are skipped; a named style fixes the type and skips the style question. Ask exactly those; if there are none, ask nothing. Never ask for the hook, structure, call to action, fonts, fps or voice engine: propose them in the structure, where the user judges a real table. A script the user already wrote is theirs: keep every word. Never invent a voice, a logo, a client or a number, and never send the script to a service the user has not accepted. Details: `references/intake.md`.
 
 ## Route
 

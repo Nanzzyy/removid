@@ -14,12 +14,23 @@ It reads the brief and prints three lists:
 - **ASSUMED**: defaults the agent takes without asking (60 fps, 30 s, Indonesian, Edge TTS, hook, structure, call to action). Say them in **one line** to the user ("Saya asumsikan: 30 detik, 60 fps, suara Edge TTS Indonesia; hook dan CTA saya susun di struktur") and move on. They correct them at Gate 1 when they see the structure and the script.
 - **ASK**: the questions still worth asking, already written as options (`--json` gives them ready for the agent's question tool). None left means: no questions, create the project.
 
+**Round 1**, one call, at most four questions:
+
 | Question | Asked when | Options (recommended first) |
 | --- | --- | --- |
+| Type of video | the brief states none and names no style | **motion graphics** (2D, 13 styles, no footage), **video editing** (the user's footage, 10 styles), **motion 3D** (characters and worlds, 13 styles); the recommended one follows the brief (a story or a character leans 3D) |
 | Format | the brief names no platform | vertical 30 s (Reels/TikTok/Shorts), wide 30-60 s, square |
-| Style | no style is named | the three styles that fit the topic (`style --for "<brief>"`), each with why |
 | Voice | narration or its source is not settled | narration + a character Claude designs with **the agent's default voice** (recommended), the default voice without a character, **the user sends audio files matching the script**, silent |
 | Proof | the brief mentions a number, offer, testimonial, domain | all true, **not sure: mark as example (recommended)**, drop them |
+
+**Round 2**, one call, once the type is known (`intake "<brief>" --category <type> --json`):
+
+| Question | Options |
+| --- | --- |
+| Style (skipped when the brief names one) | the three styles of THAT category that fit the topic, each with why; any other of the category by name through "Other" |
+| Technical needs (choose any) | the user's footage (video editing only: file and part of each clip), logo and brand kit, captions, music, data or numbers to show (not video editing). None chosen = the standard |
+
+A video-editing style makes a footage project (`Raw-Footage/`), and `new` says to put the clips there and name the part each beat uses.
 
 ## Never ask
 

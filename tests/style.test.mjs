@@ -75,11 +75,21 @@ test('recommend ranks styles by the brief and explains why', () => {
 
 // ---------- the interview ----------
 test('intake asks only what the brief leaves open, at most 4 questions, recommended answer first', () => {
-  const none = S.intake('buat video promo 30 detik untuk reels, narasi suara, gaya clay, tanpa karakter');
+  const stated = S.intake('buat motion graphics 20 detik untuk reels tentang tips hemat, narasi suara'); assert.ok(!stated.questions.some((q) => q.id === 'category'), 'stated in the brief'); assert.equal(stated.read.category, 'motion-graphics');
+  assert.ok(stated.round2['motion-graphics'][0].id === 'style');
+  const none = S.intake('buat video promo 30 detik untuk reels, narasi suara, gaya clay, tanpa karakter'); assert.ok(!none.questions.some((q) => q.id === 'category') && none.round2['motion-3d'].every((q) => q.id !== 'style'), 'a named style fixes the category and needs no style question');
   assert.equal(none.known.find((k) => k.field === 'duration').value, 30); assert.equal(none.known.find((k) => k.field === 'format').value, 'portrait'); assert.equal(none.known.find((k) => k.field === 'style').value, 'CLAY-3D');
   assert.ok(!none.questions.some((q) => q.id === 'proof'), '"30 detik" and "promo" are not claims');
   const open = S.intake('buat sebuah story sederhana tentang evolusi manusia dari purba hingga modern');
-  assert.deepEqual(open.questions.map((q) => q.id), ['format', 'style', 'voice']); assert.ok(open.questions.length <= 4);
+  assert.deepEqual(open.questions.map((q) => q.id), ['category', 'format', 'voice'], 'the type of video comes first; the style is a second round'); assert.ok(open.questions.length <= 4);
+  assert.match(open.questions[0].options[0].label, /Motion 3D .*\(Recommended\)/, 'a story with a character leans to 3D');
+  assert.deepEqual(Object.keys(open.round2), ['motion-graphics', 'video-editor', 'motion-3d']);
+  for (const [cat, qs] of Object.entries(open.round2)) {
+    assert.deepEqual(qs.map((q) => q.id), ['style', 'tech'], cat); const styleQ = qs[0], tech = qs[1]; assert.ok(styleQ.options.length <= 4 && tech.options.length <= 4 && tech.multiSelect === true, cat);
+    const {styles} = S.loadStyles(); for (const o of styleQ.options.filter((x) => x.value.style !== 'other')) assert.equal(styles[o.value.style].category, cat, `${cat}: ${o.label} belongs to another category`);
+    assert.match(styleQ.options.at(-1).description, /Other/); assert.match(styleQ.options[0].label, /\(Recommended\)/);
+  }
+  assert.ok(open.round2['video-editor'][1].options.some((o) => o.value.needs === 'footage') && !open.round2['motion-3d'][1].options.some((o) => o.value.needs === 'footage'), 'only video editing needs the user\'s footage');
   for (const q of open.questions) { assert.match(q.options[0].label, /\(Recommended\)/, q.id); assert.ok(q.options.length >= 2 && q.options.length <= 4); }
   const proof = S.intake('promo 15 detik reels, gaya midnight, narasi, diskon 50% dan gratis ongkir di toko.id');
   assert.ok(proof.questions.some((q) => q.id === 'proof')); assert.match(proof.questions.find((q) => q.id === 'proof').question, /50%|diskon|gratis/);
@@ -90,6 +100,8 @@ test('intake CLI prints the card and valid JSON', () => {
   const t = run('intake', 'video 30 detik untuk reels tentang kopi'); assert.equal(t.code, 0, t.out); assert.match(t.out, /KNOWN from the brief/); assert.match(t.out, /ASSUMED/);
   const j = JSON.parse(run('intake', 'video 30 detik untuk reels tentang kopi', '--json').out); assert.ok(Array.isArray(j.questions) && Array.isArray(j.known));
   assert.equal(run('intake').code, 2);
+  const r2 = run('intake', 'video tentang kopi', '--category', 'video-editor'); assert.equal(r2.code, 0, r2.out); assert.match(r2.out, /ROUND 2 for video-editor/); assert.match(r2.out, /Footage dari saya/); assert.equal(run('intake', 'x', '--category', 'nope').code, 2);
+  assert.ok(JSON.parse(run('intake', 'video tentang kopi', '--category', 'motion-3d', '--json').out).questions.map((q) => q.id).join() === 'style,tech');
   assert.match(run('style', '--for', 'wayang dan legenda').out, /HIKAYAT/); assert.match(run('style', 'midnight').out, /palette: bg #0E1B3D/); assert.equal(run('style', 'zzz').code, 1);
 });
 
@@ -288,4 +300,11 @@ test('an own-audio project needs no engine: vo-lines lists what to record, vo-pl
   const d = project(); run('submit', 'script', d); run('approve', 'script', d, '--evidence', 'ya oke');
   const r = run('vo-lines', d); assert.equal(r.code, 0, r.out); assert.match(r.out, /warm/); assert.ok(fs.existsSync(path.join(d, 'Asset/agen/vo-lines.json')));
   assert.match(run('vo-place', d).out, /missing per-line audio in Asset\/agen\/[\s\S]*line1\.\*/);
+});
+
+test('a video-editing style makes a footage project; other styles do not', () => {
+  const mk = (style) => { const root = path.join(tmp, 'ty' + n++); const r = run('new', 'Kopi', 'tips', '--root', root, '--format', 'portrait', '--duration', '12', '--narration', 'no', '--style', style, '--brief', 'x'); assert.equal(r.code, 0, r.out); const d = path.join(root, 'Kopi', fs.readdirSync(path.join(root, 'Kopi'))[0]); return {d, r}; };
+  const e = mk('system'); assert.ok(fs.existsSync(path.join(e.d, 'Raw-Footage/SOURCES.md'))); assert.match(fs.readFileSync(path.join(e.d, 'PROJECT.md'), 'utf8'), /type: footage/); assert.match(e.r.out, /put the clips in Raw-Footage/);
+  const m = mk('midnight'); assert.ok(!fs.existsSync(path.join(m.d, 'Raw-Footage'))); assert.match(fs.readFileSync(path.join(m.d, 'PROJECT.md'), 'utf8'), /type: motion/);
+  assert.match(run('style', '--list', '--category', 'video-editor').out, /SYSTEM/); assert.ok(!/MIDNIGHT/.test(run('style', '--list', '--category', 'video-editor').out));
 });

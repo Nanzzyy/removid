@@ -109,6 +109,31 @@ export function readBrief(brief) {
   return r;
 }
 
+export const CATEGORY_INFO = {
+  'motion-graphics': {label: 'Motion graphics (2D)', how: 'Dibuat penuh di Remotion: explainer, data, peta, tipografi bergerak, promo aplikasi.', needs: 'tanpa footage'},
+  'video-editor': {label: 'Video editing (dari footage)', how: 'Kamu mengirim footage atau talking head; footage dipotong dan diberi teks, label, dan grafis di atasnya.', needs: 'butuh footage dari kamu'},
+  'motion-3d': {label: 'Motion 3D (karakter dan dunia)', how: 'Cerita atau penjelasan dengan karakter dan dunia 3D yang dibuat dengan kode (three.js).', needs: 'tanpa footage'},
+};
+/** The category a brief asks for in so many words, or null. */
+export function statedCategory(brief) {
+  const t = String(brief);
+  if (/motion\s*graphics?|mograph\b|infografis bergerak|2d explainer/i.test(t)) return 'motion-graphics';
+  if (/video\s*edit(?:ing|or)?\b|\bedit(?:ing)?\s+(?:video|footage|rekaman|podcast)|\bedit\s+(?:klip|talking)|talking\s*head|\bpodcast\b|\bpotong\s+(?:video|footage|klip)/i.test(t)) return 'video-editor';
+  if (/motion\s*3d\b|\b3d\b|karakter\s*3d|\bvoxel\b|\bclay\b|claymation|\bpixel\b/i.test(t)) return 'motion-3d';
+  return null;
+}
+/** Technical needs worth asking, by category (multi-select; none selected = the standard). */
+const techQuestion = (category) => ({id: 'tech', header: 'Teknis', multiSelect: true, question: `Kebutuhan teknis untuk ${CATEGORY_INFO[category].label}? (kosongkan bila standar saja cukup)`, options: [
+  category === 'video-editor' ? {label: 'Footage dari saya', description: 'Saya akan menyebutkan file dan bagian klip yang dipakai; tanpa itu struktur tidak bisa disusun.', value: {needs: 'footage'}} : {label: 'Logo dan brand kit dari saya', description: 'Warna, font, dan logo yang harus dipakai menggantikan palet gaya; file masuk Asset/owner.', value: {needs: 'brand'}},
+  {label: 'Caption atau subtitle di layar', description: 'Teks ucapan tampil per kata, sesuai suara yang diukur.', value: {needs: 'captions'}},
+  {label: 'Musik latar', description: 'Lagu dari saya atau musik yang boleh dipakai; tempo diukur sebelum potongan direncanakan.', value: {needs: 'music'}},
+  category === 'video-editor' ? {label: 'Logo dan brand kit dari saya', description: 'Warna, font, dan logo menggantikan palet gaya.', value: {needs: 'brand'}} : {label: 'Data atau angka untuk ditampilkan', description: 'Saya memberi angka dan sumbernya; tidak ada yang dikarang.', value: {needs: 'data'}}]});
+const styleQuestion = (brief, category) => {
+  const rec = recommend(brief, {category, n: 3}); const all = Object.values(loadStyles().styles).filter((x) => x.category === category); const shown = new Set(rec.map((r) => r.style.id));
+  return {id: 'style', header: 'Gaya', question: `Gaya ${CATEGORY_INFO[category].label} yang mana? (saya urutkan dari yang paling cocok dengan topikmu)`, options: [...rec.map((r, i) => ({label: `${r.style.name}${i === 0 ? ' (Recommended)' : ''}`, description: `${r.style.about}${r.why.length ? ` Cocok: ${r.why.slice(0, 3).join(', ')}.` : ''}`, value: {style: r.style.id}})),
+    {label: 'Gaya lain di kategori ini', description: `Pilih lewat Other, tulis namanya: ${all.filter((x) => !shown.has(x.id)).map((x) => x.name).join(', ')}.`, value: {style: 'other'}}]};
+};
+
 const FORMAT_LABEL = {portrait: 'Vertikal 1080x1920 (Reels/TikTok/Shorts)', landscape: 'Lebar 1920x1080 (YouTube/web/presentasi)', square: 'Persegi 1440x1440 (feed)'};
 /**
  * The interview, reduced to what the brief leaves open. At most 4 questions, each with the recommended answer first. Everything else is
@@ -123,11 +148,13 @@ export function intake(brief) {
     {label: 'Lebar 30-60 dtk (YouTube/web)', description: FORMAT_LABEL.landscape + ', 60 fps', value: {format: 'landscape', duration: b.duration || 45}},
     {label: 'Persegi 30 dtk (feed)', description: FORMAT_LABEL.square, value: {format: 'square', duration: b.duration || 30}}]});
   if (b.language) known.push({field: 'language', value: b.language, from: 'the brief wording'}); else assumed.push({field: 'language', value: 'id-ID', why: 'Indonesian unless the brief is in another language'});
-  if (b.style) known.push({field: 'style', value: b.style.name, from: 'named in the brief'});
+  const stated = b.style ? b.style.category : statedCategory(brief); const guess = recommend(brief, {n: 1})[0];
+  const inferred = stated || (/\b(story|cerita|karakter|tokoh|dongeng|tokoh)\b/i.test(brief) ? 'motion-3d' : guess && guess.score > 0 ? guess.style.category : null);
+  if (b.style) known.push({field: 'style', value: b.style.name, from: 'named in the brief'}, {field: 'category', value: b.style.category, from: 'the style'});
+  else if (stated) known.push({field: 'category', value: stated, from: 'the brief'});
   else {
-    const rec = recommend(brief, {n: 3}); const top = rec.filter((r) => r.score > 0);
-    const list = (top.length >= 3 ? top : [...top, ...recommend('', {n: 12}).filter((x) => !top.some((t) => t.style.id === x.style.id))]).slice(0, 3);
-    questions.push({id: 'style', header: 'Gaya video', question: 'Gaya visual mana yang paling cocok? (saya rekomendasikan tiga yang paling sesuai dengan topikmu)', options: list.map((r, i) => ({label: `${r.style.name}${i === 0 ? ' (Recommended)' : ''}`, description: `${r.style.about}${r.why?.length ? ` Cocok: ${r.why.slice(0, 3).join(', ')}.` : ''}`, value: {style: r.style.id}}))});
+    const order = ['motion-3d', 'motion-graphics', 'video-editor'].sort((x, y) => (x === inferred ? -1 : y === inferred ? 1 : 0));
+    questions.unshift({id: 'category', header: 'Jenis video', question: 'Mau bikin jenis video yang mana dulu? (gaya dan kebutuhan teknisnya kita pilih sesudah ini)', options: order.map((c, i) => ({label: `${CATEGORY_INFO[c].label}${i === 0 && inferred ? ' (Recommended)' : ''}`, description: `${CATEGORY_INFO[c].how} ${Object.values(loadStyles().styles).filter((x) => x.category === c).length} gaya; ${CATEGORY_INFO[c].needs}.`, value: {category: c}}))});
   }
   if (b.narration === 'no') known.push({field: 'narration', value: 'no', from: 'the brief says silent'});
   else if (b.narration === 'yes' && b.voiceEngine) known.push({field: 'narration', value: 'yes', from: 'the brief'}, {field: 'voice', value: b.voiceEngine, from: 'the brief'});
@@ -144,5 +171,7 @@ export function intake(brief) {
     {label: 'Belum pasti: tandai sebagai contoh (Recommended)', description: 'Dipasang sebagai placeholder yang terlihat; render akhir menunggu kamu mengonfirmasi.', value: {claims: 'placeholder'}},
     {label: 'Buang semua angka dan klaim', description: 'Naskah ditulis tanpa angka atau penawaran.', value: {claims: 'none'}}]});
   assumed.push({field: 'fps', value: 60, why: 'default; 30 only if the platform asks'}, {field: 'voice engine', value: b.voiceEngine || 'agent-default', why: b.voiceEngine ? 'named in the brief' : 'the agent\'s own engine (Edge TTS id-ID unless the owner configured another); nothing is installed for the user, and the user may supply audio files instead'}, {field: 'hook / structure / CTA', value: 'drafted by the agent', why: 'shown in STRUCTURE.md at Gate 1 for correction, not asked up front'});
-  return {brief, known, assumed, questions: questions.slice(0, 4), read: {...b, style: b.style?.id || null}};
+  // Round 2 depends on the category the user picks (or the brief states): the style of THAT category, then its technical needs.
+  const round2 = Object.fromEntries(Object.keys(CATEGORY_INFO).map((c) => [c, [...(b.style ? [] : [styleQuestion(brief, c)]), techQuestion(c)]]));
+  return {brief, known, assumed, questions: questions.slice(0, 4), round2, read: {...b, style: b.style?.id || null, category: stated || null}};
 }
