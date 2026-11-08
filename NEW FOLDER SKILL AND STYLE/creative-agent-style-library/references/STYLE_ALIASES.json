@@ -1,0 +1,352 @@
+{
+  "styles": [
+    {
+      "category": "motion-3d",
+      "name": "VOXELVERSE",
+      "slug": "voxelverse",
+      "summary": "Cerita 3D berbasis kubus/voxel dengan karakter imut dan lingkungan blok.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-voxelverse.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "PIXELSTORY",
+      "slug": "pixelstory",
+      "summary": "Cerita pixel-art dengan lapisan kedalaman sinematik.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-pixelstory.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "PAPERWORLD",
+      "slug": "paperworld",
+      "summary": "Teater kertas bertumpuk dan cutout storybook.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-paperworld.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "WORLDFORGE",
+      "slug": "worldforge",
+      "summary": "Membangun simulasi dunia, peradaban, atau lingkungan secara menyeluruh.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-worldforge-roma.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "TIMEFORGE",
+      "slug": "timeforge",
+      "summary": "Evolusi objek atau teknologi melalui lintasan waktu.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-timeforge.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "BUILDFORGE",
+      "slug": "buildforge",
+      "summary": "Visualisasi pembangunan arsitektur langkah demi langkah.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-buildforge.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "PRECISION",
+      "slug": "precision",
+      "summary": "Showcase produk premium, komponen exploded view dan anotasi teknik.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-precision.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "INNERWORKS",
+      "slug": "innerworks",
+      "summary": "Penjelasan cara kerja mekanisme lewat cutaway atau cross-section 3D.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-innerworks.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "CHARACTERFLOW",
+      "slug": "characterflow",
+      "summary": "Cerita emosi karakter 3D dengan visualisasi pikiran atau keputusan.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-characterflow.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "CINESTORY",
+      "slug": "cinestory",
+      "summary": "Cerita karakter 3D dengan blocking dan pencahayaan sinematik.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-cinestory.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "PANELVERSE",
+      "slug": "panelverse",
+      "summary": "Komik bergerak dengan panel, speech visual dan tekstur cetak.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-motion-panelverse.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "ZACK-FACTS-INSPIRED",
+      "slug": "zack-facts-inspired",
+      "summary": "Short edukasi 3D cepat berstruktur pertanyaan dan pembuktian visual; arahan orisinal, bukan prompt milik kreator.",
+      "public_gallery_reference": null,
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-3d",
+      "name": "CLAY-3D",
+      "slug": "clay-3d",
+      "summary": "Claymation digital yang hangat, taktil, dan berkarakter.",
+      "public_gallery_reference": null,
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "IMPACT",
+      "slug": "impact",
+      "summary": "Edit kata-kunci dengan energi besar untuk hook dan klaim utama.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-impact.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "SYSTEM",
+      "slug": "system",
+      "summary": "Talking-head minimal techno dengan information pill dan sistem label.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-system.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "EDITORIAL",
+      "slug": "editorial",
+      "summary": "Editorial magazine untuk creator edukatif dengan hierarki tipografi kuat.",
+      "public_gallery_reference": null,
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "CREATOR POP",
+      "slug": "creator-pop",
+      "summary": "Konten kreator yang playful dengan perbandingan dan callout.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-creator-pop.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "MOGRAPH MIX",
+      "slug": "mograph-mix",
+      "summary": "Mix footage, icon motion, UI dan grafis vector modern.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-mograph-mix.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "STORYTELLER",
+      "slug": "storyteller",
+      "summary": "Edit naratif emosional dengan typography statement dan grading bernuansa.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-storyteller.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "DEPTH",
+      "slug": "depth",
+      "summary": "Tipografi bertingkat di belakang/depan subjek untuk efek kedalaman.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-depth.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "POSTER",
+      "slug": "poster",
+      "summary": "Poster tipografi berani yang hidup di belakang pembicara.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-poster.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "LUMEN",
+      "slug": "lumen",
+      "summary": "Aksen glow editorial yang memancarkan kata kunci.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-lumen.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "video-editor",
+      "name": "NOTED",
+      "slug": "noted",
+      "summary": "Catatan belajar/meeting di atas video untuk menjelaskan poin.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-editor-noted.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "MIDNIGHT",
+      "slug": "midnight",
+      "summary": "Dark editorial explainer dengan data, card dan hero statement.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-stalking.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "MINIATUR",
+      "slug": "miniatur",
+      "summary": "Isometric miniature world untuk menjelaskan fenomena.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-demo-tiktok.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "ARSIP",
+      "slug": "arsip",
+      "summary": "Dokumen, kalender dan bukti bergaya arsip investigatif.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-arsip.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "BLUEPRINT",
+      "slug": "blueprint",
+      "summary": "Explainer teknik berbasis diagram blueprints dan garis konstruksi.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-blueprint.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "SKETSA",
+      "slug": "sketsa",
+      "summary": "Ilustrasi catatan tangan untuk pembahasan ringan/psikologi.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-sketsa.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "HIKAYAT",
+      "slug": "hikayat",
+      "summary": "Cerita tradisi dan folklor seperti wayang/siluet panggung.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-hikayat.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "GEOMETRIK",
+      "slug": "geometrik",
+      "summary": "Explainer angka dan bentuk grafis sangat tegas.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-geometrik.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "TERMINAL",
+      "slug": "terminal",
+      "summary": "Visual retro terminal komputer dan cybersecurity.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-terminal.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "LANTANG",
+      "slug": "lantang",
+      "summary": "Statement-heavy bold typography minimal dan kontras.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-lantang.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "FLATLIFE",
+      "slug": "flatlife",
+      "summary": "Friendly explainer 2D flat illustration dan karakter sederhana.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-flatlife.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "CAIR",
+      "slug": "cair",
+      "summary": "Liquid/gummy kinetic typography dengan soft colorful forms.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-cair.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "PETA",
+      "slug": "peta",
+      "summary": "Peta tematik, geografi dan pergerakan wilayah.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-peta.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    },
+    {
+      "category": "motion-graphics",
+      "name": "KLIPING",
+      "slug": "kliping",
+      "summary": "Collage kertas koran, scrapbook dan potongan tipografi warna-warni.",
+      "public_gallery_reference": "https://kreatorlab.id/videos/galeri-mograph-kliping.jpg",
+      "basis": "public name + interpreted style; authored instruction"
+    }
+  ],
+  "aliases": {
+    "motion3d": "motion-3d",
+    "3d motion": "motion-3d",
+    "3d": "motion-3d",
+    "motion graphic": "motion-graphics",
+    "mograph": "motion-graphics",
+    "motion graphics": "motion-graphics",
+    "editor": "video-editor",
+    "video editing": "video-editor",
+    "footage": "video-editor",
+    "pixel": "PIXELSTORY",
+    "pixel art": "PIXELSTORY",
+    "pixelstory": "PIXELSTORY",
+    "paper": "PAPERWORLD",
+    "paperworld": "PAPERWORLD",
+    "paper world": "PAPERWORLD",
+    "panel": "PANELVERSE",
+    "panelverse": "PANELVERSE",
+    "clay": "CLAY-3D",
+    "clay 3d": "CLAY-3D",
+    "claymation": "CLAY-3D",
+    "zack d films": "ZACK-FACTS-INSPIRED",
+    "zac d films": "ZACK-FACTS-INSPIRED",
+    "zack d. films": "ZACK-FACTS-INSPIRED",
+    "zack facts": "ZACK-FACTS-INSPIRED",
+    "zac d": "ZACK-FACTS-INSPIRED",
+    "voxelverse": "VOXELVERSE",
+    "worldforge": "WORLDFORGE",
+    "timeforge": "TIMEFORGE",
+    "buildforge": "BUILDFORGE",
+    "precision": "PRECISION",
+    "innerworks": "INNERWORKS",
+    "characterflow": "CHARACTERFLOW",
+    "cinestory": "CINESTORY",
+    "zack-facts-inspired": "ZACK-FACTS-INSPIRED",
+    "clay-3d": "CLAY-3D",
+    "impact": "IMPACT",
+    "system": "SYSTEM",
+    "editorial": "EDITORIAL",
+    "creator pop": "CREATOR POP",
+    "mograph mix": "MOGRAPH MIX",
+    "storyteller": "STORYTELLER",
+    "depth": "DEPTH",
+    "poster": "POSTER",
+    "lumen": "LUMEN",
+    "noted": "NOTED",
+    "midnight": "MIDNIGHT",
+    "miniatur": "MINIATUR",
+    "arsip": "ARSIP",
+    "blueprint": "BLUEPRINT",
+    "sketsa": "SKETSA",
+    "hikayat": "HIKAYAT",
+    "geometrik": "GEOMETRIK",
+    "terminal": "TERMINAL",
+    "lantang": "LANTANG",
+    "flatlife": "FLATLIFE",
+    "cair": "CAIR",
+    "peta": "PETA",
+    "kliping": "KLIPING"
+  }
+}

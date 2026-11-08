@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creative Agent Scene Spec",
+  "type": "object",
+  "required": [
+    "project",
+    "scenes"
+  ],
+  "properties": {
+    "project": {
+      "type": "object",
+      "required": [
+        "title",
+        "category",
+        "style",
+        "duration_s",
+        "fps",
+        "width",
+        "height",
+        "language",
+        "status"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "motion-3d",
+            "video-editor",
+            "motion-graphics"
+          ]
+        },
+        "style": {
+          "type": "string"
+        },
+        "duration_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "language": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PLAN_ONLY",
+            "PREVIEW_READY",
+            "RENDERED",
+            "BLOCKED"
+          ]
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "start_s",
+          "end_s",
+          "objective",
+          "visual",
+          "asset_prompt",
+          "camera",
+          "motion",
+          "on_screen_text",
+          "voiceover",
+          "sfx",
+          "transition",
+          "validation_notes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "start_s": {
+            "type": "number"
+          },
+          "end_s": {
+            "type": "number"
+          },
+          "objective": {
+            "type": "string"
+          },
+          "visual": {
+            "type": "string"
+          },
+          "asset_prompt": {
+            "type": "string"
+          },
+          "camera": {
+            "type": "string"
+          },
+          "motion": {
+            "type": "string"
+          },
+          "on_screen_text": {
+            "type": "string"
+          },
+          "voiceover": {
+            "type": "string"
+          },
+          "sfx": {
+            "type": "string"
+          },
+          "transition": {
+            "type": "string"
+          },
+          "validation_notes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
