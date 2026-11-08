@@ -299,3 +299,23 @@ test('vo-place --lufs levels the voice track', { skip: !fullFfmpeg && 'needs a f
   const m = spawnSync(FFMPEG, ['-hide_banner', '-nostats', '-i', path.join(d, 'Asset/agen/vo.wav'), '-af', 'ebur128', '-f', 'null', '-'], {encoding: 'utf8'});
   const lufs = parseFloat((m.stderr.match(/\n\s+I:\s+(-?[\d.]+) LUFS/g) || []).pop().match(/-?[\d.]+/)[0]); assert.ok(Math.abs(lufs + 15) < 1.2, /* 2 s synthetic lines carry about 1 dB of edge error in the loudness measure */ `integrated ${lufs} LUFS`);
 });
+
+test('script-init writes one tagged TODO paragraph per spoken beat, with no seconds, and TODOs still fail the check', () => {
+  const d = project({empty: true});
+  fs.copyFileSync(path.join(ROOT, 'tests/fixtures/ai-critical/STRUCTURE.md'), path.join(d, 'Storyboard/STRUCTURE.md'));
+  edit(path.join(d, 'PROJECT.md'), 'target_duration: 30', 'target_duration: 38');
+  const r = run('script-init', d); assert.equal(r.code, 0, r.out);
+  const text = fs.readFileSync(SC(d), 'utf8');
+  const paras = text.replace(/<!--[\s\S]*?-->/g, '').split('\n').filter((l) => /^\[[a-z]+\] TODO$/.test(l));
+  assert.equal(paras.length, 7); assert.ok(!/\d\s*[–-]\s*\d+\s*s|\[\d\d\.\d/.test(text.replace(/<!--[\s\S]*?-->/g, '')), 'no seconds in the skeleton');
+  assert.notEqual(run('check', 'script', d).code, 0, 'unfilled TODOs must not pass');
+  fs.copyFileSync(path.join(ROOT, 'tests/fixtures/ai-critical/SCRIPT.md'), SC(d));
+  const again = run('script-init', d); assert.notEqual(again.code, 0); assert.match(again.out, /already has words/);
+  assert.equal(run('script-init', d, '--force').code, 0);
+});
+
+test('the Gate 1 contract is printed by intake (text and json) and by new', () => {
+  assert.match(run('intake', 'video tentang evolusi').out, /GATE 1 CONTRACT/);
+  assert.match(JSON.parse(run('intake', 'video tentang evolusi', '--json').out).gate1_contract, /Do not write the script or a plan in chat/);
+  const r = run('new', 'Acme', 'x', '--root', path.join(tmp, 'rootc'), '--narration', 'yes', '--brief', 'b'); assert.match(r.out, /GATE 1 CONTRACT/);
+});

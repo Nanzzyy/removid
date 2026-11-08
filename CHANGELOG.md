@@ -2,6 +2,10 @@
 
 `node skills/removid/scripts/project.mjs version` prints the version the agent is actually running, and whether it is behind `origin/main`.
 
+## 0.8.1
+- `script-init <project>` writes `SCRIPT.md` from the structure: one emotion-tagged paragraph per spoken beat, nothing else, so the agent fills words instead of inventing a format. It refuses to overwrite a script that already has words (`--force`).
+- The Gate 1 contract (what the script file is, what the chat message is, no drafting in chat) is printed by `intake` (also in `--json` as `gate1_contract`) and by `new`, the first commands every run uses, instead of living only in `SKILL.md`.
+
 ## 0.8.0
 - **The script has no seconds.** `SCRIPT.md` is only the lines (one paragraph per spoken beat, each opening with its emotion tag); the time budget of each line comes from its beat in `STRUCTURE.md`, the exact seconds live in the storyboard. `check script` rejects seconds, stage labels and "(zoom ...)" directions in a project that has a structure. Older timed scripts are still read.
 

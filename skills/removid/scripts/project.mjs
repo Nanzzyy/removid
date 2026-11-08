@@ -202,6 +202,14 @@ function structureBeats(proj) {
   return out;
 }
 /** How a script line is named in a message: its number and the beat budget it is held to (the seconds come from the structure, never from the script). */
+/** Printed by the first commands an agent runs, so the format is seen even when SKILL.md was skimmed. */
+const GATE1_CONTRACT = [
+  'GATE 1 CONTRACT (what your chat message is, and what the script file is):',
+  '  - Storyboard/SCRIPT.md holds ONLY spoken words: one paragraph per spoken beat of STRUCTURE.md, each opening with an emotion tag, a blank line between.',
+  '    No seconds, no "Tahap 1"/"Hook:" labels, no (scene or zoom directions). Time budgets live in STRUCTURE.md; picture and camera live in STORYBOARD.md.',
+  '  - Do not write the script or a plan in chat. Write the files, run `check script`, `submit script`, and paste the VO SCRIPT block the tool prints.',
+  '  - Start the script file with `script-init <project>`: it writes one tagged paragraph per spoken beat; you replace each TODO with the words.',
+].join('\n');
 const lineTag = (b, i) => (b.beatN ? `line ${i + 1} (beat ${b.beatN}, budget ${f2(b.start)}–${f2(b.end)} s)` : `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`);
 /** The script of a project, with each line's window taken from the structure. */
 function loadScript(proj) { return parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md')), structureBeats(proj)); }
@@ -779,7 +787,7 @@ const COMMANDS = {
     const body = `# ${slug}\n\n## Brief (the user's own words, do not paraphrase)\n> ${String(opt.brief).replace(/\n/g, '\n> ')}\n\n## Goal, audience, CTA\n-\n\n## Final decisions (do not reopen on revisions)\n-\n\n## History\n- ${now()} — project created (${type}, ${format} ${SIZES[format]}, ${dur}s, ${FPS} fps, narration ${narration})\n`;
     saveProject(proj, data, body);
     if (sty) fs.writeFileSync(P(proj, 'Storyboard', 'style.json'), JSON.stringify(sty, null, 1) + '\n');
-    out(`created ${proj}\nstyle: ${sty ? sty.name : 'undecided (project.mjs style --for "<brief>", then set-style)'}\nnext: ${type === 'footage' ? 'put the clips in Raw-Footage/ and name the part each beat uses in STRUCTURE.md; ' : ''}write Storyboard/STRUCTURE.md (the beats), ${narration === 'yes' ? 'then SCRIPT.md, `check script`, `submit script`, and STOP for the user (Gate 1 = structure + script)' : 'then STORYBOARD.md'}`);
+    out(`created ${proj}\nstyle: ${sty ? sty.name : 'undecided (project.mjs style --for "<brief>", then set-style)'}\nnext: ${type === 'footage' ? 'put the clips in Raw-Footage/ and name the part each beat uses in STRUCTURE.md; ' : ''}write Storyboard/STRUCTURE.md (the beats), ${narration === 'yes' ? 'then `script-init`, the words in SCRIPT.md, `check script`, `submit script`, and STOP for the user (Gate 1 = structure + script)' : 'then STORYBOARD.md'}${narration === 'yes' ? '\n\n' + GATE1_CONTRACT : ''}`);
   },
   status(pos, opt) {
     const list = [];
@@ -907,13 +915,14 @@ const COMMANDS = {
     const brief = pos.join(' ').trim(); if (!brief) die('usage: intake "<the user\'s brief in their own words>" [--category motion-graphics|video-editor|motion-3d] [--json]', 2);
     const r = intakeBrief(brief); const cat = opt.category && opt.category !== true ? String(opt.category) : r.read.category;
     if (cat && !r.round2[cat]) die(`--category must be one of ${Object.keys(r.round2).join(', ')}`, 2);
-    if (opt.json) { out(JSON.stringify(opt.category ? {...r, questions: r.round2[cat]} : r, null, 1)); return; }
+    if (opt.json) { out(JSON.stringify(opt.category ? {...r, questions: r.round2[cat]} : {...r, gate1_contract: GATE1_CONTRACT}, null, 1)); return; }
     const show = (qs) => qs.forEach((q, i) => { out(`  ${i + 1}. [${q.header}]${q.multiSelect ? ' (choose any)' : ''} ${q.question}`); q.options.forEach((o) => out(`       - ${o.label}: ${o.description}`)); });
     if (opt.category) { out(`ROUND 2 for ${cat}: ask these in ONE batch (the style of that category, then its technical needs):`); show(r.round2[cat]); return; }
     out('KNOWN from the brief:'); (r.known.length ? r.known : [{field: '-', value: 'nothing explicit', from: ''}]).forEach((k) => out(`  ${String(k.field).padEnd(12)} ${k.value}   (${k.from})`));
     out('\nASSUMED (state in one line, the user corrects at Gate 1; do not ask):'); r.assumed.forEach((a) => out(`  ${String(a.field).padEnd(12)} ${a.value}   (${a.why})`));
     out(r.questions.length ? `\nROUND 1 (${r.questions.length} question(s), ONE batch, recommended answer first):` : '\nROUND 1: nothing to ask.'); show(r.questions);
     out(cat ? `\nROUND 2 follows, for ${cat}: \`intake "<brief>" --category ${cat}\` prints it (the style of that category and its technical needs).` : '\nROUND 2 follows once the type of video is known: `intake "<brief>" --category <the answer>` prints the style of that category and its technical needs.');
+    out('\n' + GATE1_CONTRACT);
   },
   style(pos, opt) {
     const {styles} = loadStyles();
@@ -930,6 +939,20 @@ const COMMANDS = {
     if (x.build === 'footage-overlay' && data.type !== 'footage') out('  note: this style edits real footage; the project type is "motion". Add Raw-Footage/ and list the clips in STRUCTURE.md, or pick a motion style.');
     if (x.fit && narrated(data)) out(`  character: ${x.fit}`);
     if (['storyboard'].some((g) => accState(proj, g, data) === 'stale')) out('  the storyboard approval is now stale (the style is part of what was approved); check, submit and ask again.');
+  },
+  'script-init'(pos, opt) {
+    const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project: there is no spoken script (on-screen copy goes in the storyboard)');
+    if (!exists(structFile(proj))) die('Storyboard/STRUCTURE.md is missing: write the beats first, the script expresses them');
+    const st = checkStructure(proj); if (st.issues.some((i) => i.level === 'error')) { printIssues(st.issues); die('fix the structure first'); }
+    const file = P(proj, 'Storyboard', 'SCRIPT.md'); const cur = exists(file) ? read(file) : '';
+    const filled = cur && parseScript(cur, structureBeats(proj)).blocks.some((b) => b.text && !/^TODO\b/i.test(b.text.replace(/^\[[^\]]*\]\s*/, '')));
+    if (filled && !opt.force) die('SCRIPT.md already has words; pass --force to start it over');
+    const parsed = parseStructure(read(structFile(proj))); const kv = (b, k) => (b.kv.find(([x]) => x === k) || [, ''])[1];
+    const paras = parsed.beats.filter((b) => kv(b, 'vo').toLowerCase() !== 'none').map((b) => `[${(kv(b, 'emotion').split(/[,\s]/)[0] || 'neutral').toLowerCase()}] TODO`);
+    const fm = cur.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/); const front = fm ? fm[0].replace(/\n?$/, '\n') : `---\ntitle: ${data.project}\nlanguage: ${data.language}\nnarration: yes\nwps: ${DEFAULT_WPS}\n---\n`;
+    fs.writeFileSync(file, `${front}# Script: ${data.project}\n\n${paras.join('\n\n')}\n\n## Claims\n| claim | status | source |\n|---|---|---|\n`);
+    out(`wrote Storyboard/SCRIPT.md: ${paras.length} spoken beat(s), one tagged paragraph each, in the order of STRUCTURE.md.\nReplace every TODO with the words that beat says (the tag's emotion is the structure's; change it if the words need another). Nothing else goes in this file: no seconds, labels or directions.\nThen \`check script\`, \`submit script\`.`);
+    logLine(proj, 'script skeleton written from the structure');
   },
   'vo-lines'(pos, opt) {
     const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project');
