@@ -7,6 +7,9 @@
 //   node project.mjs style [name] [--list] [--for "<brief>"]   style card, the 36 styles, or the styles that fit a brief
 //   node project.mjs set-style <project> <name>   fix the video style (tokens go to Storyboard/style.json and the Remotion starter)
 //   node project.mjs vo-lines <project> [--engine plain|edge|elevenlabs|chatterbox|voicestudio]   per-line text and voice settings from the script's emotion tags
+//   node project.mjs vo-script <project>   the CLEAN voice script: only the lines with their emotion tags, a blank line between, nothing else (Asset/agen/vo-script.txt)
+//   node project.mjs vo-split <project> <audio> [--min-gap S] [--force]   cut ONE recording into Asset/agen/line1..N.wav at the pauses (the user's TTS output, cut for them)
+//   node project.mjs explain <project>   the storyboard in plain words, frame by frame (what is on screen, zoom highlights, transitions): what to tell the user at Gate 2
 //   node project.mjs voice-check [--url URL]   read-only: which voice routes exist here (agent default, a local speech server, the user's own audio)
 //   node project.mjs vo-synth <project> [--url URL] [--voice NAME]   OPTIONAL: speak each line with a local speech server the owner already runs (loopback only; installs nothing)
 //   node project.mjs repair <project>   recreate any missing mandatory folder or template file (never overwrites)
@@ -30,7 +33,7 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {resolveStyle, loadStyles, recommend, intake as intakeBrief, TRANSITIONS} from './lib-style.mjs';
 import {voiceUrl, probe, synth, assertLocal} from './lib-voice.mjs';
-import {canonical, suggest, vocabulary, extractTags, renderLine, edgeArgs, timeline as emoTimeline, energy as emoEnergy, loadEmotions, emotionsTs, tempoFor, ENGINES} from './lib-emotion.mjs';
+import {canonical, suggest, suggestAny, vocabulary, modifiers as allModifiers, extractTags, renderLine, edgeArgs, timeline as emoTimeline, energy as emoEnergy, loadEmotions, emotionsTs, tempoFor, ENGINES} from './lib-emotion.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TPL = path.join(HERE, '..', 'templates', 'project');
@@ -191,7 +194,7 @@ function checkScript(proj) {
     if (i && b.start > blocks[i - 1].end + 1e-9) I(`${f2(b.start - blocks[i - 1].end)} s visual-only beat before ${tag}`);
     const need = talk ? speechSec(b.text, wps) : Math.max(READ_MIN, READ_SEC_PER_WORD * b.words);
     const room = Math.floor(Math.max(0, win - (talk ? 0.3 : 0)) * (talk ? wps : 1 / READ_SEC_PER_WORD));
-    rows.push({i: i + 1, label: b.label, start: b.start, end: b.end, win, words: b.words, need, room, emotion: b.tags.map((t) => t.tag || '?').join('>')});
+    rows.push({i: i + 1, label: b.label, start: b.start, end: b.end, win, words: b.words, need, room, emotion: b.tags.map((t) => (t.tag ? t.tag + (t.mods.length ? '+' + t.mods.join('+') : '') : '?')).join('>')});
     if (need > win) E(`${tag}: needs ~${f2(need)} s but the window is ${f2(win)} s (${b.words} words; about ${room} fit). Cut words or widen the window.`);
     else if (need > win - 0.3) W(`${tag}: needs ~${f2(need)} s of a ${f2(win)} s window, no breathing room`);
     if (talk && !report && win > 2 && need < 0.4 * win) I(`${tag}: speech fills only ${Math.round(100 * need / win)}% of the window (fine if it is a visual beat)`);
@@ -234,7 +237,8 @@ function checkScript(proj) {
       else if (v2 && b.tags[0].at !== 0) E(`${tag}: the first tag comes after word ${b.tags[0].at}; the line must open with its emotion`);
       if (b.tags.length > 2) E(`${tag}: ${b.tags.length} emotion tags in one block; at most 2 (the face changes once inside a line)`);
       b.tags.forEach((t, k) => {
-        if (!t.tag) { eLevel(`${tag}: [${t.raw}] is not an emotion tag${suggest(t.raw) ? ` (did you mean [${suggest(t.raw)}]?)` : ''}. Known: ${known.join(', ')}`); return; }
+        if (!t.tag) { eLevel(`${tag}: [${t.raw}] has no emotion in it${suggestAny(t.raw) ? ` (did you mean [${suggestAny(t.raw)}]?)` : ''}. Open with one of: ${known.join(', ')}; delivery words may follow after a comma: ${allModifiers().join(', ')}`); return; }
+        if (t.bad.length) { eLevel(`${tag}: [${t.raw}]: "${t.bad.join('", "')}" is neither an emotion nor a delivery word${suggestAny(t.bad[0]) ? ` (did you mean ${suggestAny(t.bad[0])}?)` : ''}. Delivery words: ${allModifiers().join(', ')}`); return; }
         const segWords = (b.tags[k + 1]?.at ?? b.words) - t.at;
         if (b.tags.length > 1 && segWords / wps < 0.8) E(`${tag}: [${t.tag}] covers ${segWords} word(s), about ${f2(segWords / wps)} s; a face needs 0.8 s to show an emotion. Merge it into the neighbour.`);
       });
@@ -249,7 +253,7 @@ function checkScript(proj) {
     if (report.segments.length === blocks.length) blocks.forEach((b, i) => { const s = report.segments[i]; if (s.end > b.end + 0.05) W(`block ${i + 1}: measured speech ends ${f2(s.end)} s, after its window end ${f2(b.end)} s (storyboard windows follow the audio)`); });
     else W(`measured audio has ${report.segments.length} segments, script has ${blocks.length} blocks`);
   }
-  return {issues, rows, meta: {wps, dur, totalWords, totalNeed, talk, report: !!report}};
+  return {issues, rows, structure: struct.beats, meta: {wps, dur, totalWords, totalNeed, talk, report: !!report}};
 }
 
 // ---------- structure (STRUCTURE.md): what the video is made of, before any word is written ----------
@@ -516,7 +520,7 @@ function checkStoryboard(proj) {
         const span = (k) => (seg ? {s: seg[k].start, e: seg[k].end} : {s: vos[k].start + 0.1, e: vos[k].end - 0.1});
         const timeAt = (w) => { let k = lines.findIndex((l) => w >= l.first && w < l.first + l.words); if (k < 0) k = lines.length - 1; const sp = span(k); return sp.s + ((w - lines[k].first) / Math.max(1, lines[k].words)) * (sp.e - sp.s); };
         const moments = []; let base = 0;
-        for (const x of sb) { for (const t of x.tags) if (t.tag) moments.push({at: timeAt(base + t.at), tag: t.tag}); base += x.words; }
+        for (const x of sb) { for (const t of x.tags) if (t.tag) moments.push({at: timeAt(base + t.at), tag: t.tag, mods: t.mods}); base += x.words; }
         emotions = emoTimeline(moments, span(lines.length - 1).e);
         emotions.segments.forEach((x, k, all) => { if (k < all.length - 1 && x.end - x.start < 0.8 - 1e-9) E(`delivery [${x.tag}] lasts ${f2(x.end - x.start)} s (${f2(x.start)}–${f2(x.end)}); a face needs 0.8 s to show an emotion. Merge it with its neighbour in SCRIPT.md.`); });
       }
@@ -576,7 +580,7 @@ const hashScript = (proj) => {
   if (!exists(P(proj, 'Storyboard', 'SCRIPT.md'))) return '';
   const blocks = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks; const hs = hashStructure(proj);
   // The delivery (emotion tags) and the structure are part of what the user approves; a script without either hashes exactly as before.
-  return sha(blocks.map((b) => `${b.start}-${b.end}${b.tags.length ? ' ' + b.tags.map((t) => `${t.tag || t.raw}@${t.at}`).join(',') : ''} ${b.text}`).join('\n') + (hs ? '\n#structure ' + hs : ''));
+  return sha(blocks.map((b) => `${b.start}-${b.end}${b.tags.length ? ' ' + b.tags.map((t) => `${t.tag || t.raw}${t.mods?.length ? '+' + t.mods.join('+') : ''}@${t.at}`).join(',') : ''} ${b.text}`).join('\n') + (hs ? '\n#structure ' + hs : ''));
 };
 function hashStoryboard(proj, data) {
   if (!exists(P(proj, 'Storyboard', 'STORYBOARD.md'))) return '';
@@ -625,6 +629,36 @@ function printScriptTable(r) {
   for (const x of r.rows) out(`  ${String(x.i).padStart(1)}  ${f2(x.start).padStart(5)}–${f2(x.end).padEnd(6)}   ${f2(x.win).padStart(5)}  ${String(x.words).padStart(5)}  ${f2(x.need).padStart(7)}  ${String(x.room).padStart(8)}  ${(x.emotion || '-').padEnd(14)}${x.need > x.win ? '<- too long' : ''}`);
   if (r.meta) out(`  total ${r.meta.totalWords} words, ~${f2(r.meta.totalNeed)} s of ${r.meta.dur ? f2(r.meta.dur) : '?'} s at ${r.meta.wps} words/s${r.meta.report ? '' : ' (estimate until the audio is measured)'}`);
 }
+/** The storyboard as a person explains it: frame by frame, in words, from the file itself (so it cannot drift from what will be built). */
+function explainStoryboard(proj) {
+  const {data} = loadProject(proj); const {frames} = parseStoryboard(read(P(proj, 'Storyboard', 'STORYBOARD.md')));
+  const plan = exists(P(proj, 'Storyboard', 'plan.json')) ? JSON.parse(read(P(proj, 'Storyboard', 'plan.json'))) : null;
+  const zooms = [], needs = [];
+  for (const fr of frames) {
+    const get = (k) => fr.kv.filter(([x]) => x === k).map(([, v]) => v); const t = get('time')[0] && rangeOf(get('time')[0]); if (!t) continue;
+    out(`\nFrame ${fr.n}${fr.name ? ' — ' + fr.name : ''}   ${f2(t.a)}–${f2(t.b)} s`);
+    if (get('scene')[0]) out(`  On screen:  ${get('scene')[0]}`);
+    for (const v of get('vo')) if (v.toLowerCase() !== 'none') { const q = v.match(/["“](.*)["”]/); const r = rangeOf(v); if (q && r) out(`  Voice:      ${f2(r.a)}–${f2(r.b)}  "${q[1]}"`); }
+    for (const x of get('text')) out(`  Text:       ${x}`);
+    for (const z of get('zoom')) { out(`  Zoom:       ${z}`); zooms.push(`Frame ${fr.n}: ${z.split(/\s+/)[0]}`); }
+    for (const c of get('cursor')) out(`  Cursor:     ${c}`);
+    for (const n of get('narrator')) out(`  Narrator:   ${n}`);
+    const pf = plan?.frames?.find((f) => f.id === fr.n); if (pf?.transition && pf.transition.kind !== 'none') out(`  Transition in: ${pf.transition.kind}${pf.transition.sec ? ' ' + pf.transition.sec + ' s' : ''}`);
+    for (const x of get('sfx')) out(`  Effect:     ${x}`);
+    if (get('reads')[0]) out(`  The viewer takes away: ${get('reads')[0]}`);
+    for (const a of get('asset')) for (const ref of pathLike(a)) if (!assetExists(proj, ref)) needs.push(`${ref} (Frame ${fr.n})`);
+  }
+  out('\nSUMMARY');
+  out(`  Zoom highlights: ${zooms.length ? zooms.join('; ') : 'none'}`);
+  if (plan?.emotions?.segments) out(`  Delivery arc:    ${plan.emotions.segments.filter((x) => x.end !== null).map((x) => x.tag).join(' → ')}`);
+  if (plan?.style) out(`  Style:           ${plan.style.name} (transition ${plan.style.transition.kind}${plan.style.transition.sec ? ' ' + plan.style.transition.sec + ' s' : ''})`);
+  out(`  Still needed from the user: ${needs.length ? needs.join(', ') : 'nothing'}`);
+}
+function printStructure(beats) {
+  if (!beats?.length) return;
+  out('\nSTRUCTURE (what the video is made of):\n  #  time            purpose   emotion     one idea');
+  for (const b of beats) out(`  ${String(b.n).padStart(1)}  ${f2(b.start).padStart(5)}–${f2(b.end).padEnd(6)}  ${b.purpose.padEnd(8)}  ${(b.emotion || '-').padEnd(10)}  ${b.info}`);
+}
 function printPlan(plan) {
   out('  frame  time             frames   vo words  zoom  cursor');
   for (const p of plan) out(`  ${String(p.id).padStart(5)}  ${f2(p.start).padStart(5)}–${f2(p.end).padEnd(6)}  ${String(p.durationFrames).padStart(6)}  ${String(p.vo.reduce((a, v) => a + v.words, 0)).padStart(8)}  ${String(p.zoom.length).padStart(4)}  ${String(p.cursor.length).padStart(6)}`);
@@ -634,16 +668,22 @@ function writePlan(proj, r, data) {
   fs.writeFileSync(P(proj, 'Storyboard', 'plan.json'), JSON.stringify({fps: r.meta.fps, size: data.size, totalSec: r.meta.total, totalFrames: Math.round(r.meta.total * r.meta.fps), hash: hashStoryboard(proj, data), style: r.style, emotions: r.emotions, sfx: r.sfx, frames: r.plan}, null, 1) + '\n');
 }
 
+/**
+ * The clean voice script: what a person pastes into any TTS or reads into a microphone. Only the lines, each opening with its emotion tag as the
+ * author wrote it, one blank line between lines (so it can be cut line by line). No times, labels, scene directions, claims or notes.
+ */
+const voScriptText = (blocks) => blocks.map((b) => b.rawText.replace(/\s+/g, ' ').trim()).join('\n\n') + '\n';
 /** Asset/agen/vo.txt (clean words, one line per block) and vo-lines.json (every engine's version of each line, from the emotion tags). `engine` also writes lines/lineN.txt. */
 function writeVoLines(proj, engine) {
   const blocks = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks.filter((b) => b.text); const dir = P(proj, 'Asset', 'agen'); fs.mkdirSync(dir, {recursive: true});
   const dflt = loadEmotions().default;
   const lines = blocks.map((b, i) => {
-    const tags = b.tags.filter((t) => t.tag); const tag = tags[0]?.tag || dflt;
-    return {n: i + 1, label: b.label, start: b.start, end: b.end, emotion: tag, emotions: tags.map((t) => ({tag: t.tag, afterWord: t.at})), text: b.text,
-      engines: {plain: renderLine(b.rawText, 'plain'), edge: {text: renderLine(b.rawText, 'edge'), ...edgeArgs(tag)}, elevenlabs: renderLine(b.rawText, 'elevenlabs'), chatterbox: renderLine(b.rawText, 'chatterbox'), voicestudio: renderLine(b.rawText, 'voicestudio')}};
+    const tags = b.tags.filter((t) => t.tag); const tag = tags[0]?.tag || dflt; const mods = tags[0]?.mods || [];
+    return {n: i + 1, label: b.label, start: b.start, end: b.end, emotion: tag, ...(mods.length ? {modifiers: mods} : {}), emotions: tags.map((t) => ({tag: t.tag, ...(t.mods.length ? {modifiers: t.mods} : {}), afterWord: t.at})), text: b.text,
+      engines: {plain: renderLine(b.rawText, 'plain'), edge: {text: renderLine(b.rawText, 'edge'), ...edgeArgs(tag, mods)}, elevenlabs: renderLine(b.rawText, 'elevenlabs'), chatterbox: renderLine(b.rawText, 'chatterbox'), voicestudio: renderLine(b.rawText, 'voicestudio')}};
   });
   fs.writeFileSync(P(dir, 'vo.txt'), blocks.map((b) => b.text).join('\n') + '\n');
+  fs.writeFileSync(P(dir, 'vo-script.txt'), voScriptText(blocks));
   fs.writeFileSync(P(dir, 'vo-lines.json'), JSON.stringify({note: 'One entry per script block. Edge TTS has no emotion tags: use engines.edge (rate/pitch/volume). elevenlabs keeps v3-style audio tags; chatterbox (VoiceBox Turbo) keeps only [laugh]/[gasp] and is English only.', lines}, null, 1) + '\n');
   if (engine) { const d = P(dir, 'lines'); fs.mkdirSync(d, {recursive: true}); lines.forEach((l) => fs.writeFileSync(P(d, `line${l.n}.txt`), (engine === 'elevenlabs' ? l.engines.elevenlabs : engine === 'chatterbox' ? l.engines.chatterbox : engine === 'voicestudio' ? l.engines.voicestudio : l.engines.plain) + '\n')); }
   return lines;
@@ -709,7 +749,7 @@ const COMMANDS = {
   check(pos, opt) {
     const [what, p] = pos; if (!['script', 'storyboard'].includes(what)) die('usage: check script|storyboard <project>', 2);
     const proj = findProject(p, opt);
-    if (what === 'script') { const r = checkScript(proj); if (r.rows.length) printScriptTable(r); const e = printIssues(r.issues); process.exit(e ? 1 : 0); }
+    if (what === 'script') { const r = checkScript(proj); if (r.rows.length) printScriptTable(r); printStructure(r.structure); const e = printIssues(r.issues); process.exit(e ? 1 : 0); }
     const r = checkStoryboard(proj); if (r.plan?.length) printPlan(r.plan); const e = printIssues(r.issues);
     if (!e && r.plan) { writePlan(proj, r, loadProject(proj).data); out('wrote Storyboard/plan.json (frame counts for the Remotion compositions)'); }
     process.exit(e ? 1 : 0);
@@ -720,7 +760,7 @@ const COMMANDS = {
     if (what === 'script' && !talk) die('narration is off: there is no script gate. Submit the storyboard.');
     if (what === 'storyboard') { const why = gate(proj, 'storyboard'); if (why.length) die('cannot submit the storyboard: ' + why.join('; ')); }
     const r = what === 'script' ? checkScript(proj) : checkStoryboard(proj);
-    if (what === 'script') printScriptTable(r); else if (r.plan) printPlan(r.plan);
+    if (what === 'script') { printScriptTable(r); printStructure(r.structure); } else if (r.plan) printPlan(r.plan);
     const e = printIssues(r.issues); if (e) die('\nfix the errors, then submit again.');
     if (what === 'storyboard' && talk && !loadVoReport(proj) && !opt.estimate) die('\nno measured audio. Produce the voice and run `vo` first, or pass --estimate "the user\'s reason" (for example: the user records later and the visuals are fitted to the real file).');
     if (opt.estimate && opt.estimate !== true) logLine(proj, `storyboard submitted on ESTIMATED voice timing: ${opt.estimate}`);
@@ -730,7 +770,16 @@ const COMMANDS = {
     if (what === 'storyboard') writePlan(proj, r, data);
     const fresh = loadProject(proj); fresh.data.acc[what] = {status: 'waiting', at: now(), evidence: '', hash: currentHash(proj, what, fresh.data)}; fresh.data.stage = `acc-${what}`; saveProject(proj, fresh.data, fresh.body);
     logLine(proj, `${what} submitted (hash ${fresh.data.acc[what].hash}), waiting for the user`);
-    out(`\nSUBMITTED ${what}. STOP: show the user the table and the warnings above and wait for their answer. Do not continue until they approve in their own words.`);
+    if (what === 'script') {
+      out('\n================ VO SCRIPT (copy-ready; the file is Asset/agen/vo-script.txt) ================');
+      process.stdout.write(read(P(proj, 'Asset', 'agen', 'vo-script.txt')));
+      out('================ end of VO SCRIPT ================');
+      out('\nAt this stop show the user TWO separate things: (1) the structure table, (2) the VO SCRIPT above in a code block, exactly as printed. Nothing else is mixed in:\n  - the VO script holds no times, scene directions, labels or notes (it is what they take to any TTS, or read into a microphone);\n  - zoom highlights, cursor, transitions and what is on screen second by second are the STORYBOARD: explain them at Gate 2 (`explain`), not now;\n  - never ask how long their audio is: `vo` / `vo-split` measure it from the file.');
+    } else {
+      out('\n================ STORYBOARD, in plain words (`project.mjs explain` prints this again) ================'); explainStoryboard(proj);
+      out('\nAt this stop explain ONLY the storyboard, from the walkthrough above: per frame what is on screen, the zoom highlights, the cursor and narrator moments, the transitions, and the files still needed from the user. Do not repeat the script.');
+    }
+    out(`\nSUBMITTED ${what}. STOP: wait for their answer. Do not continue until they approve in their own words.`);
   },
   approve(pos, opt) {
     const [what, p] = pos; if (!['script', 'storyboard', 'sample', 'final'].includes(what)) die('usage: approve script|storyboard|sample|final <project> --evidence "..."', 2);
@@ -835,6 +884,33 @@ const COMMANDS = {
     out(`\nwrote Asset/agen/vo-lines.json${eng ? ` and Asset/agen/lines/line1..${lines.length}.txt (${eng})` : ''}`);
     out('Edge TTS (no emotion tags; the settings above carry the emotion), one file per line, for example:\n  edge-tts --voice id-ID-GadisNeural --rate=<rate> --pitch=<pitch> --volume=<volume> --text "<text>" --write-media Asset/agen/line1.mp3\nThen `vo-place <project> --fit --lufs -15`. The emotion tags drive the narrator\'s face and gestures either way.');
   },
+  'vo-script'(pos, opt) {
+    const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project');
+    if (!exists(P(proj, 'Storyboard', 'SCRIPT.md'))) die('Storyboard/SCRIPT.md is missing');
+    const sc = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))); const blocks = sc.blocks.filter((b) => b.text); if (!blocks.length) die('the script has no lines');
+    const bad = blocks.filter((b) => b.tags.some((t) => !t.tag || t.bad.length)).length; if (bad) die(`${bad} line(s) carry a tag removid does not know; run \`check script\` first`);
+    fs.mkdirSync(P(proj, 'Asset', 'agen'), {recursive: true}); const text = voScriptText(blocks); fs.writeFileSync(P(proj, 'Asset', 'agen', 'vo-script.txt'), text); process.stdout.write(text);
+  },
+  'vo-split'(pos, opt) {
+    const [p, audio] = pos; if (!audio) die('usage: vo-split <project> <audio> [--min-gap S] [--force]', 2);
+    const proj = findProject(p, opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project');
+    const why = gate(proj, 'voice'); if (why.length) die('blocked: ' + why.join('; '));
+    const dir = P(proj, 'Asset', 'agen'); const have = exists(dir) ? fs.readdirSync(dir).filter((f) => /^line\d+\./i.test(f)) : [];
+    if (have.length && !opt.force) die(`Asset/agen already has ${have.slice(0, 3).join(', ')}${have.length > 3 ? '...' : ''}; pass --force to replace the line files`);
+    for (const f of have) fs.rmSync(P(dir, f));
+    const {report, script} = measureVoice(proj, path.resolve(audio), num(opt['min-gap']) || 0);
+    if (!report.mapped) die(`found ${report.segments.length} speech run(s) but the script has ${script.length} lines, so the recording cannot be cut by its pauses. Leave a pause of 0.5 s or more between lines, or try --min-gap S.`);
+    const segs = report.segments; const PAD_IN = 0.12, PAD_OUT = 0.25;
+    segs.forEach((sg, i) => {
+      const from = Math.max(i ? (segs[i - 1].end + sg.start) / 2 : 0, sg.start - PAD_IN), to = Math.min(i + 1 < segs.length ? (sg.end + segs[i + 1].start) / 2 : report.duration, sg.end + PAD_OUT);
+      const f = P(dir, `line${i + 1}.wav`); const r = spawnSync(ffbin('ffmpeg'), ['-hide_banner', '-loglevel', 'error', '-y', '-i', path.resolve(audio), '-ss', from.toFixed(3), '-to', to.toFixed(3), '-c:a', 'pcm_s16le', f], {encoding: 'utf8'});
+      if (r.status !== 0) die(`ffmpeg could not cut line ${i + 1}: ${(r.stderr || '').split('\n').slice(-3).join(' ')}`);
+      out(`  line ${i + 1}: ${f2(from)}–${f2(to)} s of the recording -> Asset/agen/line${i + 1}.wav   "${script[i].text.slice(0, 44)}"`);
+    });
+    fs.rmSync(P(dir, 'vo-report.json'), {force: true}); logLine(proj, `recording ${path.basename(audio)} cut into ${segs.length} line files at its pauses`);
+    out(`\n${segs.length} lines cut from ${f2(report.duration)} s of audio, measured at ${report.minGap} s pauses. Check by ear that each file holds the right line, then: \`vo-place ${path.basename(proj)} --fit --lufs -15\`.`);
+  },
+  explain(pos, opt) { const proj = findProject(pos[0], opt); if (!exists(P(proj, 'Storyboard', 'STORYBOARD.md'))) die('Storyboard/STORYBOARD.md is missing'); explainStoryboard(proj); },
   async 'voice-check'(pos, opt) {
     const url = voiceUrl(opt); out('Voice routes on this machine (read-only; nothing is installed or started):');
     const ff = spawnSync(ffbin('ffmpeg'), ['-version'], {encoding: 'utf8'}); const edge = spawnSync('edge-tts', ['--version'], {encoding: 'utf8'});
@@ -853,7 +929,7 @@ const COMMANDS = {
     for (const l of lines) {
       const text = l.engines.voicestudio; if (!text) die(`line ${l.n} has no speakable text after the tags were translated`);
       const wav = await synth(url, text, {voice: opt.voice && opt.voice !== true ? String(opt.voice) : 'alloy'}); const f = P(dir, `line${l.n}.wav`); fs.writeFileSync(f, wav);
-      const tempo = tempoFor(l.emotion);
+      const tempo = tempoFor(l.emotion, l.modifiers || []);
       if (Math.abs(tempo - 1) > 0.005) { const t = f.replace(/\.wav$/, '.tmp.wav'); const r = spawnSync(ffbin('ffmpeg'), ['-hide_banner', '-loglevel', 'error', '-y', '-i', f, '-filter:a', `atempo=${tempo.toFixed(3)}`, t], {encoding: 'utf8'}); if (r.status !== 0) die('ffmpeg atempo failed: ' + (r.stderr || '').split('\n').slice(-3).join(' ')); fs.renameSync(t, f); }
       out(`  line ${l.n} [${l.emotion}] -> ${path.relative(proj, f)} (${wav.length} bytes, tempo ${tempo.toFixed(2)})`);
     }

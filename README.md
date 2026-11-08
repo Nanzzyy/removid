@@ -57,7 +57,7 @@ skills/removid/
 │   ├── doctor.sh                 tool check (Node, ffmpeg, the minimal-ffmpeg trap)
 │   ├── new-project.sh            scaffold a Remotion project from the starter
 │   └── probe-mp4.sh              assert size / fps / duration of a render
-├── styles/                       styles.json (36 styles), emotions.json (12 emotions): the single source
+├── styles/                       styles.json (36 styles), emotions.json (15 emotions + delivery words): the single source
 ├── templates/project/            STRUCTURE.md, SCRIPT.md, STORYBOARD.md, REFERENCES.md ... copied into each project
 └── templates/remotion-starter/   tested starter: UiDemo (cursor + zoom) and Narrator (3D character)
     ├── src/lib/                  camera, cursor, pose, emotion, face, style, envelope, plan (pure, no React)
@@ -98,7 +98,7 @@ Inside `Source/remotion`: `npm run check` (zoom, cursor, pose, lip sync), `npm r
 
 ```bash
 ./test.sh          # syntax, project/style/emotion tests (mutants must fail), install/uninstall, scaffold, typecheck, numeric audit, emotion and style mutants
-./test.sh --full   # + pixel cursor check (and a 90 px mutant that must fail), the emotion sheets (twelve faces must differ from neutral), stills, 60 fps renders of both scenes, probed
+./test.sh --full   # + pixel cursor check (and a 90 px mutant that must fail), the emotion sheets (every face must differ from neutral), stills, 60 fps renders of both scenes, probed
 REMOVID_FFMPEG=/path/to/full/ffmpeg ./test.sh   # also runs the tests that need a full ffmpeg (sfx audibility, assemble); otherwise they are skipped
 ```
 

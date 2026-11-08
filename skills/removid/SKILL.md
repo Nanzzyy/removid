@@ -29,7 +29,7 @@ Never author scenes in HyperFrames HTML, and never port Remotion work into Hyper
 | 2 | Project + style | `new ... --style X` or `style --for`, `set-style` | |
 | 3 | Structure, then script with emotions | `Storyboard/STRUCTURE.md`, `SCRIPT.md`, `check script`, `submit script` | **Gate 1** |
 | 4 | Voice (agent default, local server, or the user's audio) | `voice-check`, `vo-lines`, `vo-synth`, `vo-place` | |
-| 5 | Character and its twelve faces | `scaffold --preview`, `npm run character -- <id> [--emotions]`, `set-character` | the user sees the sheets |
+| 5 | Character and its fifteen faces | `scaffold --preview`, `npm run character -- <id> [--emotions]`, `set-character` | the user sees the sheets |
 | 6 | Storyboard | `STORYBOARD.md`, `check storyboard`, `submit storyboard` | **Gate 2** |
 | 7 | Build scenes, clips, assemble | `gate build`, `scaffold`, Remotion, `assemble` | |
 | 8 | 10 s sample | HyperFrames `render --start 0 --end 10` | **Gate 3** |
@@ -67,7 +67,7 @@ Existing project: run `scripts/project.mjs status <name or path>` and read its `
 1. **Intake** (above), then `project.mjs new <Brand> <slug> --brief "the user's own words" --style <name> ...` (folder schema: `references/project-folder.md`). Style: `style --for "<brief>"`, `set-style`. Analyse the user's references.
 2. **Structure** in `Storyboard/STRUCTURE.md`: beats with time, purpose, what is shown, which footage, the ONE idea, the emotion (`references/structure.md`). Then **script** in `Storyboard/SCRIPT.md`: timed blocks inside those beats, each opening with an emotion tag (`[curious] ...`), plus the claims table. `check script` computes words, seconds and the delivery arc; fix every error. `submit script`, show the table, **stop (Gate 1 = structure + script)**. Silent video: no Gate 1; the structure is checked with the storyboard.
 3. **Voice, after Gate 1** (narrated): `voice-check` shows the routes; install nothing. (a) The agent's default voice: `vo-lines <proj> --engine edge` gives each line with rate/pitch/volume from its emotion (tags are never read aloud). (b) A local speech server the owner already runs: `vo-synth <proj>`. (c) The user's own audio, one file per line or one recording. Then `vo-place <proj> --fit --lufs -15` or `vo <proj> <audio>` measures the real timing.
-4. **Character** (narrated): Claude designs it (woman, man, pixel, mascot...), `scaffold --preview`, `npm run character -- <id>` and `-- <id> --emotions` render its sheet and its twelve faces, show the user, `set-character <proj> <id>` (or `none` = voice only).
+4. **Character** (narrated): Claude designs it (woman, man, pixel, mascot...), `scaffold --preview`, `npm run character -- <id>` and `-- <id> --emotions` render its sheet and its fifteen faces, show the user, `set-character <proj> <id>` (or `none` = voice only).
 5. **Storyboard** in `Storyboard/STORYBOARD.md`: frames (every beat boundary is a frame boundary), vo windows, text, cursor stops, zooms, narrator cues, transitions, assets, in numbers. `check storyboard` (checks the style, writes `plan.json` with frame counts, style and emotion segments), `submit storyboard`, **stop (Gate 2)**.
 6. `gate build`, `scaffold`, then **Remotion** builds the scenes from `plan.json` and `src/style.ts`: `npm run check`, stills (start, mid, end, each click, each zoom hold), `npm run check:cursor`, scene clips at 60 fps with handles, `probe-mp4.sh`.
 7. **HyperFrames** cuts and assembles the clips with the style's transitions, mixes audio (skipped only when the result is one Remotion scene with no cuts, footage or audio mixing): `sfx.mjs` for effects, `project.mjs assemble` for `index.html`, `check`. Render the 10 s sample (`--start 0 --end 10`), **stop (Gate 3)**.
@@ -77,6 +77,7 @@ Approval means the user's own words, passed to `approve --evidence "..."`. Chang
 
 ## Hard rules
 
+- **Say each thing once, at its own stop** (`references/messages.md`). At Gate 1 show the structure and, separately, the clean VO script (only the lines with their emotion tags: no times, labels, scene directions or zoom ideas; it is what the user takes to any TTS). Zoom highlights, cursor, transitions and what is on screen second by second are the storyboard: explain them at Gate 2 with `explain`, and only them. Never ask how long the user's audio is; `vo`, `vo-split` and `vo-place` measure it.
 - The folder schema is mandatory (`references/project-folder.md`): never work outside the project folder; if `status` says FOLDER INCOMPLETE, run `repair`. Every file the build uses is listed in `Asset/ASSETS.md`.
 - No script, no storyboard, no build: do not write scene code or render before the matching `project.mjs gate` says open. Never skip a gate because the video is short or the user sounds in a hurry; a one-frame storyboard is still a storyboard.
 - Order is fixed: intake, style, structure, script, voice, character, storyboard. The voice is never made before the script is approved.

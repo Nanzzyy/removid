@@ -107,7 +107,7 @@ test('intake CLI prints the card and valid JSON', () => {
 
 // ---------- emotions ----------
 test('the emotion table is complete and the voice, face and gestures agree', () => {
-  const {tags, aliases} = E.loadEmotions(); const names = Object.keys(tags); assert.equal(names.length, 12);
+  const {tags, aliases} = E.loadEmotions(); const names = Object.keys(tags); assert.equal(names.length, 15);
   for (const [k, t] of Object.entries(tags)) {
     assert.ok(t.face.smile >= -1 && t.face.smile <= 1 && t.face.brow >= -1 && t.face.brow <= 1 && t.face.raise >= 0 && t.face.raise <= 1 && t.face.eye >= 0.7 && t.face.eye <= 1.4 && Math.abs(t.face.tilt) <= 0.2, k);
     assert.ok(t.energy >= 0 && t.energy <= 1 && t.body.bounce >= 0 && t.body.bounce <= 1.6, k); assert.ok(t.gestures.every((g) => ['wave', 'point', 'present'].includes(g)), k);
@@ -125,7 +125,7 @@ test('the starter carries exactly the table (no drift) and its sample moods use 
 test('each engine gets the line it can use', () => {
   const raw = '[curious] Kenapa es mengapung? [laugh] Ternyata ringan.';
   assert.equal(E.renderLine(raw, 'plain'), 'Kenapa es mengapung? Ternyata ringan.'); assert.equal(E.renderLine(raw, 'edge'), 'Kenapa es mengapung? Ternyata ringan.', 'Edge reads tags aloud, so none');
-  assert.equal(E.renderLine(raw, 'elevenlabs'), '[curious] Kenapa es mengapung? [laughs] Ternyata ringan.');
+  assert.equal(E.renderLine(raw, 'elevenlabs'), '[curious] Kenapa es mengapung? [laugh] Ternyata ringan.', "ElevenLabs tags are free-form: the author's own words go through");
   assert.equal(E.renderLine(raw, 'chatterbox'), 'Kenapa es mengapung? [laugh] Ternyata ringan.', 'only the sound tags the engine has');
   assert.deepEqual(E.edgeArgs('excited'), {rate: '+10%', pitch: '+8Hz', volume: '+5%', pauseBefore: 0}); assert.equal(E.edgeArgs('sad').rate, '-12%');
   assert.throws(() => E.renderLine(raw, 'nope'));
@@ -152,7 +152,7 @@ test('a script block must sit inside one beat and open with its emotion', () => 
   m('[03.0–08.0] PROBLEM', '[02.0–08.0] PROBLEM', /crosses a beat boundary/);
   m('[00.0–03.0] HOOK\n[warm] UMKM', '[00.0–03.0] HOOK\nUMKM', /block 1 .* no emotion tag/);
   m('[serious] Usaha kecil', 'Usaha kecil [serious] sulit', /the first tag comes after word|no emotion tag/);
-  m('[proud] PrvTech', '[prowd] PrvTech', /\[prowd\] is not an emotion tag \(did you mean \[proud\]\?\)/);
+  m('[proud] PrvTech', '[prowd] PrvTech', /\[prowd\] has no emotion in it \(did you mean \[proud\]\?\)/);
   m('[excited] Dari toko online, sistem kasir, sampai laporan keuangan, sesuai kebutuhan bisnismu.', '[excited] Dari toko online, [calm] sistem kasir, [sad] sampai laporan keuangan, sesuai kebutuhan bisnismu.', /3 emotion tags in one block/);
   m('[excited] Dari toko online, sistem kasir,', '[excited] Dari [calm] toko online, sistem kasir,', /\[excited\] covers 1 word/);
 });
@@ -177,7 +177,7 @@ test('vo-lines writes each engine its own version of every line', () => {
   const r = run('vo-lines', d, '--engine', 'elevenlabs'); assert.equal(r.code, 0, r.out); assert.match(r.out, /edge-tts --voice id-ID-GadisNeural/);
   const j = JSON.parse(fs.readFileSync(path.join(d, 'Asset/agen/vo-lines.json'), 'utf8')); assert.equal(j.lines.length, 6);
   assert.equal(j.lines[0].emotion, 'warm'); assert.deepEqual(j.lines[0].engines.edge, {text: 'UMKM kamu sudah punya website?', rate: '-3%', pitch: '+2Hz', volume: '+0%', pauseBefore: 0});
-  assert.match(j.lines[3].engines.elevenlabs, /^\[excited\] Dari toko online, \[laughs\] sistem kasir/); assert.ok(!/\[/.test(j.lines[3].engines.plain)); assert.ok(!/\[/.test(j.lines[3].engines.edge.text));
+  assert.match(j.lines[3].engines.elevenlabs, /^\[excited\] Dari toko online, \[laugh\] sistem kasir/); assert.ok(!/\[/.test(j.lines[3].engines.plain)); assert.ok(!/\[/.test(j.lines[3].engines.edge.text));
   assert.equal(j.lines[3].emotions.length, 2); assert.equal(fs.readFileSync(path.join(d, 'Asset/agen/lines/line4.txt'), 'utf8').trim(), j.lines[3].engines.elevenlabs);
   assert.equal(run('vo-lines', d, '--engine', 'zzz').code, 2); assert.equal(run('vo-lines', project({narration: 'no'})).code, 1);
 });
@@ -341,4 +341,58 @@ test('the style library in source-material mirrors styles.json, and no tracked p
   for (const f of ['AGENTS.upstream.md', 'CLAUDE.upstream.md']) assert.ok(fs.existsSync(path.join(ROOT, 'source-material/creative-agent-style-library', f)), f);
   for (const f of ['AGENTS.md', 'CLAUDE.md']) assert.ok(!fs.existsSync(path.join(ROOT, 'source-material/creative-agent-style-library', f)), `${f} in the library would load a second workflow`);
   const g = spawnSync('git', ['ls-files'], {cwd: ROOT, encoding: 'utf8'}); if (g.status === 0) assert.deepEqual(g.stdout.split('\n').filter((p) => / /.test(p)), [], 'tracked paths with spaces');
+});
+
+// ---------- the clean voice script, compound tags, cutting a recording, the storyboard in words ----------
+const AI = path.join(ROOT, 'tests/fixtures/ai-critical');
+function aiProject() {
+  const root = path.join(tmp, 'ai' + n++); const r = run('new', 'Edu', 'ai-kritis', '--root', root, '--format', 'portrait', '--duration', '38', '--narration', 'yes', '--character', 'ayu', '--style', 'flatlife', '--brief', 'x'); assert.equal(r.code, 0, r.out);
+  const d = path.join(root, 'Edu', fs.readdirSync(path.join(root, 'Edu'))[0]); for (const f of ['STRUCTURE.md', 'SCRIPT.md']) fs.copyFileSync(path.join(AI, f), path.join(d, 'Storyboard', f)); return d;
+}
+test('the owner\'s own script, with compound tags like [thoughtful, slower], passes and comes out as a clean voice script', () => {
+  const d = aiProject(); const c = run('check', 'script', d); assert.equal(c.code, 0, c.out); assert.match(c.out, /thoughtful\+slower/); assert.match(c.out, /calm\+reassuring/); assert.match(c.out, /serious\+emphatic/);
+  const s = run('submit', 'script', d); assert.equal(s.code, 0, s.out); const expected = fs.readFileSync(path.join(AI, 'VO-SCRIPT.expected.txt'), 'utf8');
+  assert.equal(fs.readFileSync(path.join(d, 'Asset/agen/vo-script.txt'), 'utf8'), expected, 'exactly the lines the owner pasted: tags kept, one blank line between, nothing else');
+  assert.ok(s.out.includes(expected.trim()), 'the same text is printed at the stop');
+  const f = fs.readFileSync(path.join(d, 'Asset/agen/vo-script.txt'), 'utf8'); assert.ok(!/\d\d\.\d|HOOK|BALANCE|Claims|##|scene|zoom/i.test(f), 'no times, labels, claims or directions in the voice script');
+  assert.equal(f.trim().split(/\n\s*\n/).length, 7); assert.ok(f.trim().split(/\n\s*\n/).every((l) => /^\[[a-z, ]+\] \S/.test(l) && !l.includes('\n')), 'every line opens with its tag');
+  assert.match(s.out, /show the user TWO separate things/); assert.match(s.out, /never ask how long their audio is/); assert.ok(!/Zoom highlights|Frame \d/.test(s.out), 'the storyboard is not explained at Gate 1');
+  assert.equal(run('vo-script', d).out, expected); assert.ok(!/\[/.test(fs.readFileSync(path.join(d, 'Asset/agen/vo.txt'), 'utf8')), 'vo.txt stays tag-free');
+  const j = JSON.parse(fs.readFileSync(path.join(d, 'Asset/agen/vo-lines.json'), 'utf8')).lines; assert.deepEqual(j[4].modifiers, ['slower']); assert.equal(j[4].engines.edge.rate, '-16%'); assert.equal(j[4].engines.elevenlabs, '[thoughtful, slower] Dan ketika semua keputusan kamu serahkan pada AI... kapan terakhir kali kamu benar-benar berpikir sendiri?');
+  assert.ok(j[6].engines.elevenlabs.startsWith('[firm, emphatic] '), 'ElevenLabs gets the author\'s own words'); assert.ok(!/\[/.test(j[6].engines.edge.text));
+  assert.equal(j[6].emotion, 'serious', 'firm is serious');
+});
+test('a word in a tag that is neither an emotion nor a delivery word is an error with a suggestion; stray brackets are caught', () => {
+  const m = (from, to, re) => { const d = aiProject(); edit(SC(d), from, to); const r = run('check', 'script', d); assert.equal(r.code, 1, `${from} -> ${to}\n${r.out}`); assert.match(r.out, re); };
+  m('[thoughtful, slower]', '[thoughtful, slowr]', /"slowr" is neither an emotion nor a delivery word \(did you mean slower\?\)/);
+  m('[impressed] Cepat', '[Applause] Cepat', /\[Applause\] has no emotion in it/);
+  m('[calm, reassuring]', '[reassuring]', /has no emotion in it/);
+  m('[concerned]', '[worriedd]', /did you mean/);
+});
+test('modifiers change the delivery numbers, not the emotion', () => {
+  const {tags} = E.loadEmotions(); const a = E.voiceSettings('thoughtful'), b = E.voiceSettings('thoughtful', ['slower']); assert.equal(b.rate, a.rate - 8); assert.equal(E.voiceSettings('serious', ['emphatic']).volume, tags.serious.voice.volume + 3);
+  assert.ok(E.moodFor('calm', ['reassuring']).face.smile > tags.calm.face.smile); assert.ok(E.moodFor('serious', ['emphatic']).body.bounce > tags.serious.body.bounce);
+  assert.ok(E.moodFor('calm', ['reassuring']).face.smile <= 1 && E.moodFor('excited', ['reassuring']).face.smile <= 1, 'clamped');
+  assert.ok(Math.abs(E.voiceSettings('sad', ['slower', 'slower', 'whisper']).rate) <= 20, 'the rate stays natural however many modifiers pile up');
+  assert.deepEqual(E.parseTag('firm, emphatic'), {tag: 'serious', mods: ['emphatic'], bad: []}); assert.deepEqual(E.parseTag('calm reassuring'), {tag: 'calm', mods: ['reassuring'], bad: []});
+});
+test('vo-split cuts one recording into the line files at its pauses', { skip: !hasFfmpegHere && 'needs ffmpeg' }, () => {
+  const d = project(); const wav = path.join(tmp, 'one-take.wav'); const spans = [[0.4, 2.5], [3.6, 7.0], [8.4, 13.2], [14.4, 19.8], [21.2, 23.3], [25.0, 28.0]];
+  const g = spawnSync(process.env.REMOVID_FFMPEG || 'ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=f=300:d=29:r=24000', '-af', `volume='if(${spans.map(([a, b]) => `between(t,${a},${b})`).join('+')},1,0)':eval=frame`, wav]); assert.equal(g.status, 0, String(g.stderr));
+  assert.equal(run('vo-split', d, wav).code, 1, 'blocked before the script is approved'); run('submit', 'script', d); run('approve', 'script', d, '--evidence', 'ya oke');
+  const r = run('vo-split', d, wav); assert.equal(r.code, 0, r.out); assert.match(r.out, /6 lines cut from 29\.00 s/);
+  spans.forEach(([a, b], i) => { const f = path.join(d, `Asset/agen/line${i + 1}.wav`); assert.ok(fs.existsSync(f), f); const dur = parseFloat(spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f], {encoding: 'utf8'}).stdout); assert.ok(dur >= b - a && dur <= b - a + 0.5, `line ${i + 1} is ${dur} s, speech is ${b - a} s`); });
+  assert.equal(run('vo-split', d, wav).code, 1, 'it will not overwrite line files by accident'); assert.equal(run('vo-split', d, wav, '--force').code, 0);
+  const fit = run('vo-place', d, '--fit'); assert.equal(fit.code, 0, fit.out); assert.match(fit.out, /6 speech segment\(s\), 6 script line\(s\)/);
+  const bad = project(); run('submit', 'script', bad); run('approve', 'script', bad, '--evidence', 'ya oke'); const one = path.join(tmp, 'few.wav');
+  spawnSync(process.env.REMOVID_FFMPEG || 'ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=f=300:d=10:r=24000', '-af', "volume='if(between(t,1,4)+between(t,6,9),1,0)':eval=frame", one]);
+  const x = run('vo-split', bad, one); assert.equal(x.code, 1); assert.match(x.out, /found 2 speech run\(s\) but the script has 6 lines/);
+});
+test('explain tells the storyboard in words, and only at Gate 2', () => {
+  const d = project(); const e = run('explain', d); assert.equal(e.code, 0, e.out);
+  assert.match(e.out, /Frame 4 — Features demo\s+14\.00–21\.00 s/); assert.match(e.out, /On screen:\s+Dashboard with three tabs/); assert.match(e.out, /Zoom:\s+laporan-chart 18\.40–20\.90 scale=1\.5/); assert.match(e.out, /Cursor:\s+tab-toko @15\.00 click/); assert.match(e.out, /Narrator:\s+point 4\.00–6\.50 R at headline/);
+  assert.match(e.out, /Zoom highlights: Frame 4: laporan-chart/); assert.match(e.out, /Still needed from the user: Asset\/owner\/prvtech-logo\.svg \(Frame 3\)/); assert.ok(!/wps|PROBLEM|## Claims/.test(e.out), 'not the script');
+  run('check', 'storyboard', d); const x = e.out; assert.ok(x.length > 500);
+  run('submit', 'script', d); run('approve', 'script', d, '--evidence', 'ya oke'); const s = run('submit', 'storyboard', d, '--estimate', 'r'); assert.equal(s.code, 0, s.out);
+  assert.match(s.out, /STORYBOARD, in plain words/); assert.match(s.out, /explain ONLY the storyboard/); assert.match(s.out, /Delivery arc:\s+warm → serious → proud → excited → proud → excited/); assert.match(s.out, /Transition in: fade 0\.4 s/);
 });

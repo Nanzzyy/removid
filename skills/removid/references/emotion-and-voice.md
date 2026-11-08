@@ -4,7 +4,7 @@ One tag in the script drives three things, so they cannot disagree: **how the li
 
 ## Tags
 
-Open every narrated block with one: `[curious] Bagaimana ini berubah jadi kamu?`. A second tag may change the delivery mid-line (at most 2 per block, each covering 0.8 s or more, otherwise the face cannot show it). Tags are never spoken and never counted as words. A tag is `[word]`; aliases map to these twelve (`happy` → warm, `angry` → mad, `bingung` → confused...). An unknown tag is an error that names the nearest one.
+Open every narrated block with one: `[curious] Bagaimana ini berubah jadi kamu?`. A second tag may change the delivery mid-line (at most 2 per block, each covering 0.8 s or more, otherwise the face cannot show it). Tags are never spoken and never counted as words. A tag is `[emotion]` or `[emotion, delivery word]`: `[curious]`, `[thoughtful, slower]`, `[calm, reassuring]`, `[firm, emphatic]`. The emotion is the first word that is one of these fifteen (aliases count: `happy` → warm, `firm` → serious, `angry` → mad, `bingung` → confused); the delivery words after it only nudge how it is delivered (below). A word that is neither an emotion nor a delivery word, or a bracket with no emotion (`[Applause]`, `[slower]`), is an error that names the nearest word: a TTS would read it aloud.
 
 | Tag | Feel | Voice (Edge) | Face | Gestures that fit |
 | --- | --- | --- | --- | --- |
@@ -20,6 +20,11 @@ Open every narrated block with one: `[curious] Bagaimana ini berubah jadi kamu?`
 | mad | angry | rate +6%, pitch -4, vol +6 | frown, brows down hard | point |
 | sad | low | rate -12%, pitch -8, vol -4 | frown, inner brows up, lean | none |
 | calm | settled | rate -8%, pitch -3 | soft smile, half-lidded | present |
+| impressed | admiring | pitch +4, vol +1 | broad smile, brows up, eyes wide | present, point |
+| concerned | worried | rate -6%, pitch -2 | slight frown, inner brows up, lean | present |
+| thoughtful | reflecting | rate -8%, pitch -2, pause 0.15 s | faint smile, half-lidded, head tilt | present |
+
+**Delivery words** (after the emotion, comma-separated; unlimited per tag): `slower` (rate -8%), `faster` (+8%), `softer` (volume -4), `louder` (+4), `emphatic` (volume +3, pitch +2, bigger bounce), `reassuring` (rate -3%, a little more smile), `whisper` (volume -6, rate -6, small bounce). Rate stays within ±20% however many pile up. ElevenLabs receives the author's own words unchanged (`[firm, emphatic]`); Edge gets the summed rate, pitch and volume; the narrator's face and bounce use the nudged numbers.
 
 `check script` also reads the arc: a hook delivered with energy under 0.5, an ending that is sad or calm before a call to action, every block the same tag, or a jump from sad to excited with no visual beat between are warnings. `check storyboard` warns when a narrator cue contradicts the delivery (a wave while the line is `sad`).
 
@@ -30,6 +35,20 @@ removid ships no voice engine and installs nothing on anyone's machine. `project
 1. **The agent's default voice** (recommended): whatever speech tool the agent already has. Edge TTS id-ID is the baseline.
 2. **A local speech server the owner already runs** (optional). `vo-synth` speaks each line to its OpenAI-compatible endpoint (`POST /v1/audio/speech`; Voice Studio's is on `127.0.0.1:3900`, set another with `--url` or `REMOVID_VOICE_URL`). It talks to loopback addresses only (a remote host needs `REMOVID_VOICE_ALLOW_REMOTE=1`, the owner's decision), starts nothing, and stops with a clear message when nothing answers.
 3. **The user's own audio**: `vo-lines` lists each line (and the emotion to perform); the user records or generates one file per line (`Asset/agen/line1.*`) or one whole recording, and `vo-place` or `vo` measures it. No engine needed.
+
+## The clean voice script
+
+What goes to a TTS, or to a microphone, is **one separate file and nothing else**: `Asset/agen/vo-script.txt` (printed by `submit script`, or `project.mjs vo-script <proj>`). Each line opens with its tag as written, one blank line between lines so it can be cut line by line:
+
+```
+[curious] Pernah merasa... AI selalu punya jawaban?
+
+[thoughtful, slower] Dan ketika semua keputusan kamu serahkan pada AI... kapan terakhir kali kamu benar-benar berpikir sendiri?
+```
+
+No times, no labels (HOOK, CTA), no scene directions, no zoom notes, no claims table, no estimated length. The words are the approved script's; the visuals are the storyboard's. `vo.txt` is the same without the tags, for engines that would read a bracket aloud.
+
+A user who has one recording instead of per-line files: `project.mjs vo-split <proj> <audio>` cuts it into `line1..N.wav` at its pauses (0.5 s or more between lines; it refuses and says how many runs it found when the count does not match), then `vo-place <proj> --fit`. Never ask how long their audio is: `vo`, `vo-split` and `vo-place` measure it from the file.
 
 ## The voice is made after the script
 

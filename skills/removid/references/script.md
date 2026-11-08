@@ -34,7 +34,7 @@ Usaha kecil sulit berkembang kalau terlihat kurang profesional.
 
 Each block is `[start–end] LABEL` and then only the words that are said. Direction, music and visuals belong to the storyboard. Gaps between blocks are visual-only beats.
 
-**Open each narrated block with its emotion tag** (`[curious] UMKM kamu sudah punya website?`). It is the delivery: it sets how the line is spoken, how the narrator's face acts and which gestures fit (`emotion-and-voice.md`). At most 2 per block, each covering 0.8 s or more; never spoken, never counted as words; part of what Gate 1 approves.
+**Open each narrated block with its emotion tag** (`[curious] UMKM kamu sudah punya website?`; with a delivery word when it helps: `[thoughtful, slower]`). It is the delivery: it sets how the line is spoken, how the narrator's face acts and which gestures fit (`emotion-and-voice.md`). At most 2 per block, each covering 0.8 s or more; never spoken, never counted as words; part of what Gate 1 approves. The user takes the lines, and only the lines, as `Asset/agen/vo-script.txt` (`emotion-and-voice.md`, "The clean voice script").
 
 ## The numbers (the checker computes them; do not eyeball)
 

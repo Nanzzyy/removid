@@ -14,8 +14,21 @@
     "serious":   {"energy": 0.45, "face": {"smile": 0.1,  "brow": 0.35,  "raise": 0,   "eye": 0.92, "tilt": 0},     "body": {"bounce": 0.5}, "voice": {"rate": -6,  "pitch": -6,  "volume": 0,  "pause": 0.15}, "gestures": ["point", "present"],        "eleven": "serious",  "chatterbox": null, "voicestudio": "[pause 250ms]"},
     "mad":       {"energy": 0.9,  "face": {"smile": -0.4, "brow": 1.0,   "raise": 0,   "eye": 0.9,  "tilt": -0.03}, "body": {"bounce": 1.1}, "voice": {"rate": 6,   "pitch": -4,  "volume": 6,  "pause": 0},    "gestures": ["point"],                   "eleven": "angry",    "chatterbox": null, "voicestudio": "[dissatisfaction-hnn]"},
     "sad":       {"energy": 0.15, "face": {"smile": -0.5, "brow": -0.9,  "raise": 0,   "eye": 0.85, "tilt": 0.1},   "body": {"bounce": 0.25}, "voice": {"rate": -12, "pitch": -8,  "volume": -4, "pause": 0.2},  "gestures": [],                          "eleven": "sad",      "chatterbox": null, "voicestudio": "[sigh]"},
-    "calm":      {"energy": 0.25, "face": {"smile": 0.6,  "brow": 0,     "raise": 0,   "eye": 0.95, "tilt": 0},     "body": {"bounce": 0.5}, "voice": {"rate": -8,  "pitch": -3,  "volume": -2, "pause": 0.1},  "gestures": ["present"],                 "eleven": "calm",     "chatterbox": null, "voicestudio": null}
+    "calm":      {"energy": 0.25, "face": {"smile": 0.6,  "brow": 0,     "raise": 0,   "eye": 0.95, "tilt": 0},     "body": {"bounce": 0.5}, "voice": {"rate": -8,  "pitch": -3,  "volume": -2, "pause": 0.1},  "gestures": ["present"],                 "eleven": "calm",     "chatterbox": null, "voicestudio": null},
+    "impressed": {"energy": 0.65, "face": {"smile": 0.8,  "brow": -0.1,  "raise": 0.55, "eye": 1.15, "tilt": 0.02},  "body": {"bounce": 1.1}, "voice": {"rate": 0,  "pitch": 4,  "volume": 1,  "pause": 0},    "gestures": ["present", "point"],        "eleven": "impressed", "chatterbox": null, "voicestudio": null},
+    "concerned": {"energy": 0.3,  "face": {"smile": -0.15, "brow": -0.6, "raise": 0.15, "eye": 1,    "tilt": 0.08},  "body": {"bounce": 0.5}, "voice": {"rate": -6, "pitch": -2, "volume": -1, "pause": 0.1}, "gestures": ["present"],                 "eleven": "concerned", "chatterbox": null, "voicestudio": null},
+    "thoughtful": {"energy": 0.3, "face": {"smile": 0.25, "brow": -0.1,  "raise": 0.2,  "eye": 0.95, "tilt": 0.1},   "body": {"bounce": 0.4}, "voice": {"rate": -8, "pitch": -2, "volume": -2, "pause": 0.15}, "gestures": ["present"],                "eleven": "thoughtful", "chatterbox": null, "voicestudio": "[pause 300ms]"}
   },
+  "modifiers": {
+    "slower":     {"voice": {"rate": -8}},
+    "faster":     {"voice": {"rate": 8}},
+    "softer":     {"voice": {"volume": -4}, "body": {"bounce": -0.2}},
+    "louder":     {"voice": {"volume": 4}},
+    "emphatic":   {"voice": {"volume": 3, "pitch": 2, "pause": 0.1}, "body": {"bounce": 0.2}},
+    "reassuring": {"voice": {"rate": -3, "pitch": -1}, "face": {"smile": 0.15}},
+    "whisper":    {"voice": {"volume": -6, "rate": -6}, "body": {"bounce": -0.3}}
+  },
+  "modifierAliases": {"slow": "slower", "fast": "faster", "quieter": "softer", "gentle": "softer", "quiet": "softer", "stressed": "emphatic", "strong": "emphatic", "comforting": "reassuring", "whispering": "whisper", "lebih-pelan": "slower", "pelan": "slower", "cepat": "faster", "tegas-penuh": "emphatic"},
   "aliases": {
     "happy": "warm", "senang": "warm", "friendly": "warm", "ramah": "warm", "hangat": "warm",
     "wondering": "curious", "thinking": "curious", "penasaran": "curious", "ingin-tahu": "curious",
@@ -27,6 +40,7 @@
     "serius": "serious", "firm": "serious", "tegas": "serious",
     "angry": "mad", "marah": "mad", "kesal": "mad", "frustrated": "mad",
     "sedih": "sad", "sigh": "sad", "sighs": "sad", "down": "sad",
-    "tenang": "calm", "relaxed": "calm", "soft": "calm"
+    "tenang": "calm", "relaxed": "calm", "soft": "calm",
+    "amazed": "impressed", "kagum": "impressed", "impressive": "impressed", "khawatir": "concerned", "worry": "concerned", "anxious": "concerned", "cemas": "concerned", "pensive": "thoughtful", "reflective": "thoughtful", "berpikir": "thoughtful", "musing": "thoughtful"
   }
 }

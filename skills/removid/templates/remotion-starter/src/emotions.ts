@@ -202,5 +202,54 @@ export const EMOTION_TABLE = {
     "gestures": [
       "present"
     ]
+  },
+  "impressed": {
+    "energy": 0.65,
+    "face": {
+      "smile": 0.8,
+      "brow": -0.1,
+      "raise": 0.55,
+      "eye": 1.15,
+      "tilt": 0.02
+    },
+    "body": {
+      "bounce": 1.1
+    },
+    "gestures": [
+      "present",
+      "point"
+    ]
+  },
+  "concerned": {
+    "energy": 0.3,
+    "face": {
+      "smile": -0.15,
+      "brow": -0.6,
+      "raise": 0.15,
+      "eye": 1,
+      "tilt": 0.08
+    },
+    "body": {
+      "bounce": 0.5
+    },
+    "gestures": [
+      "present"
+    ]
+  },
+  "thoughtful": {
+    "energy": 0.3,
+    "face": {
+      "smile": 0.25,
+      "brow": -0.1,
+      "raise": 0.2,
+      "eye": 0.95,
+      "tilt": 0.1
+    },
+    "body": {
+      "bounce": 0.4
+    },
+    "gestures": [
+      "present"
+    ]
   }
 } as const;
