@@ -57,7 +57,7 @@ skills/removid/
 │   ├── doctor.sh                 tool check (Node, ffmpeg, the minimal-ffmpeg trap)
 │   ├── new-project.sh            scaffold a Remotion project from the starter
 │   └── probe-mp4.sh              assert size / fps / duration of a render
-├── styles/                       styles.json (36 styles), emotions.json (15 emotions + delivery words): the single source
+├── styles/                       styles.json (36 styles), emotions.json (18 tuned presets, a 160-word open lexicon, delivery words): the single source
 ├── templates/project/            STRUCTURE.md, SCRIPT.md, STORYBOARD.md, REFERENCES.md ... copied into each project
 └── templates/remotion-starter/   tested starter: UiDemo (cursor + zoom) and Narrator (3D character)
     ├── src/lib/                  camera, cursor, pose, emotion, face, style, envelope, plan (pure, no React)

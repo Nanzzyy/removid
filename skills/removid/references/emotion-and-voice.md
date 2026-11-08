@@ -4,7 +4,20 @@ One tag in the script drives three things, so they cannot disagree: **how the li
 
 ## Tags
 
-Open every narrated block with one: `[curious] Bagaimana ini berubah jadi kamu?`. A second tag may change the delivery mid-line (at most 2 per block, each covering 0.8 s or more, otherwise the face cannot show it). Tags are never spoken and never counted as words. A tag is `[emotion]` or `[emotion, delivery word]`: `[curious]`, `[thoughtful, slower]`, `[calm, reassuring]`, `[firm, emphatic]`. The emotion is the first word that is one of these fifteen (aliases count: `happy` → warm, `firm` → serious, `angry` → mad, `bingung` → confused); the delivery words after it only nudge how it is delivered (below). A word that is neither an emotion nor a delivery word, or a bracket with no emotion (`[Applause]`, `[slower]`), is an error that names the nearest word: a TTS would read it aloud.
+Open every narrated block with one: `[curious] Bagaimana ini berubah jadi kamu?`. A second tag may change the delivery mid-line (at most 2 per block, each covering 0.8 s or more, otherwise the face cannot show it). Tags are never spoken and never counted as words.
+
+## The vocabulary is open
+
+**Any emotion word works**, in English or Indonesian: `[furious]`, `[nostalgic]`, `[terrified]`, `[gembira]`, `[bittersweet]`. There is no closed list.
+
+- **18 presets** are tuned by hand (table below): neutral, warm, curious, confused, surprised, excited, laugh, proud, serious, mad, sad, calm, impressed, concerned, thoughtful, afraid, tired, disgusted.
+- **A shipped lexicon of about 160 more words** gives each a place between the presets (valence: unpleasant to pleasant; arousal: calm to energetic). A word takes its face, voice and body from the nearest presets, weighted by distance, so `[nostalgic]` lands among calm, warm and thoughtful. Words whose valence and arousal cannot tell anger from fear from disgust name a **family** (`furious`, `irritated`, `indignant` → mad; `nervous` → afraid; `gloomy` → sad): that preset's face, scaled by how intense the word is, so `irritated` frowns less than `furious`.
+- **Aliases** map everyday words to a preset (`happy` → warm, `firm` → serious, `scared` → afraid, `capek` → tired).
+- **Your own words** go in `Storyboard/emotions.custom.json` of the project: `{"bittersweet": {"va": [0.1, 0.25]}, "gloomish": {"like": "sad"}}` (a point of valence and arousal, or "like" another known word).
+- **A word nobody knows** (`[Applause]`, `[wistfulish]`) is a warning, not an error: the face stays neutral, ElevenLabs receives the tag as written (its tags are free-form), and Edge, Voice Studio and the other engines drop it, so it is never read aloud. A **misspelling** of a known word (`[serios]`, `[thoughtful, slowr]`) is an error that names the word you meant (only words of 5+ letters are checked, so short real words are never "corrected").
+- The tag may carry **more than one emotion** (`[excited, nervous]`: the second is mixed in at 35%) and **delivery words** (below).
+
+The tuned presets:
 
 | Tag | Feel | Voice (Edge) | Face | Gestures that fit |
 | --- | --- | --- | --- | --- |
@@ -23,8 +36,11 @@ Open every narrated block with one: `[curious] Bagaimana ini berubah jadi kamu?`
 | impressed | admiring | pitch +4, vol +1 | broad smile, brows up, eyes wide | present, point |
 | concerned | worried | rate -6%, pitch -2 | slight frown, inner brows up, lean | present |
 | thoughtful | reflecting | rate -8%, pitch -2, pause 0.15 s | faint smile, half-lidded, head tilt | present |
+| afraid | fearful | rate +8%, pitch +6, vol -2 | wide eyes, brows up and together, small frown | present |
+| tired | worn out | rate -12%, pitch -6, vol -4, pause 0.2 s | heavy lids, slight frown, slumped | none |
+| disgusted | repelled | rate -4%, pitch -4 | frown, brows down, narrowed eyes | point |
 
-**Delivery words** (after the emotion, comma-separated; unlimited per tag): `slower` (rate -8%), `faster` (+8%), `softer` (volume -4), `louder` (+4), `emphatic` (volume +3, pitch +2, bigger bounce), `reassuring` (rate -3%, a little more smile), `whisper` (volume -6, rate -6, small bounce). Rate stays within ±20% however many pile up. ElevenLabs receives the author's own words unchanged (`[firm, emphatic]`); Edge gets the summed rate, pitch and volume; the narrator's face and bounce use the nudged numbers.
+**Delivery words** (after the emotion, comma-separated; an unknown one is passed to free-form engines and otherwise ignored): `slower` (rate -8%), `faster` (+8%), `softer` (volume -4), `louder` (+4), `emphatic` (volume +3, pitch +2, bigger bounce), `reassuring` (rate -3%, a little more smile), `whisper` (volume -6, rate -6, small bounce). Rate stays within ±20% however many pile up. ElevenLabs receives the author's own words unchanged (`[firm, emphatic]`); Edge gets the summed rate, pitch and volume; the narrator's face and bounce use the nudged numbers.
 
 `check script` also reads the arc: a hook delivered with energy under 0.5, an ending that is sad or calm before a call to action, every block the same tag, or a jump from sad to excited with no visual beat between are warnings. `check storyboard` warns when a narrator cue contradicts the delivery (a wave while the line is `sad`).
 

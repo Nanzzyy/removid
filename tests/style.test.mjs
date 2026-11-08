@@ -107,7 +107,7 @@ test('intake CLI prints the card and valid JSON', () => {
 
 // ---------- emotions ----------
 test('the emotion table is complete and the voice, face and gestures agree', () => {
-  const {tags, aliases} = E.loadEmotions(); const names = Object.keys(tags); assert.equal(names.length, 15);
+  const {tags, aliases} = E.loadEmotions(); const names = Object.keys(tags); assert.equal(names.length, 18, 'tuned presets');
   for (const [k, t] of Object.entries(tags)) {
     assert.ok(t.face.smile >= -1 && t.face.smile <= 1 && t.face.brow >= -1 && t.face.brow <= 1 && t.face.raise >= 0 && t.face.raise <= 1 && t.face.eye >= 0.7 && t.face.eye <= 1.4 && Math.abs(t.face.tilt) <= 0.2, k);
     assert.ok(t.energy >= 0 && t.energy <= 1 && t.body.bounce >= 0 && t.body.bounce <= 1.6, k); assert.ok(t.gestures.every((g) => ['wave', 'point', 'present'].includes(g)), k);
@@ -142,7 +142,7 @@ test('the structure fixture passes; structure mutants are rejected', () => {
   m('- purpose: cta', '- purpose: setup', /the last beat must be cta, outro or payoff/);
   m('- time: 0.0–3.0', '- time: 0.0–4.6', /hook of 4\.60 s|starts at 4\.60|overlap/);
   m('- info: A direct question: does your business have a website?', '- info: TODO', /"info" must state the ONE thing/);
-  m('- emotion: serious', '- emotion: sereous', /emotion "sereous" is not known \(did you mean serious\?\)/);
+  m('- emotion: serious', '- emotion: sereous', /emotion "sereous" looks like a misspelling of "serious"/);
   m('- source: remotion\n- info: Looking', '- source: footage\n- info: Looking', /source includes footage but there is no "- footage:/);
   m('- shows: The PrvTech wordmark, then a clean storefront assembling from cards.', '- shows: x', /"shows" must say what is on screen/);
   const d = project(); fs.rmSync(ST(d)); const r = run('check', 'script', d); assert.equal(r.code, 1); assert.match(r.out, /STRUCTURE\.md is missing/);
@@ -152,7 +152,7 @@ test('a script block must sit inside one beat and open with its emotion', () => 
   m('[03.0–08.0] PROBLEM', '[02.0–08.0] PROBLEM', /crosses a beat boundary/);
   m('[00.0–03.0] HOOK\n[warm] UMKM', '[00.0–03.0] HOOK\nUMKM', /block 1 .* no emotion tag/);
   m('[serious] Usaha kecil', 'Usaha kecil [serious] sulit', /the first tag comes after word|no emotion tag/);
-  m('[proud] PrvTech', '[prowd] PrvTech', /\[prowd\] has no emotion in it \(did you mean \[proud\]\?\)/);
+  m('[proud] PrvTech', '[prowd] PrvTech', /\[prowd\]: "prowd" looks like a misspelling of "proud"/);
   m('[excited] Dari toko online, sistem kasir, sampai laporan keuangan, sesuai kebutuhan bisnismu.', '[excited] Dari toko online, [calm] sistem kasir, [sad] sampai laporan keuangan, sesuai kebutuhan bisnismu.', /3 emotion tags in one block/);
   m('[excited] Dari toko online, sistem kasir,', '[excited] Dari [calm] toko online, sistem kasir,', /\[excited\] covers 1 word/);
 });
@@ -362,19 +362,17 @@ test('the owner\'s own script, with compound tags like [thoughtful, slower], pas
   assert.ok(j[6].engines.elevenlabs.startsWith('[firm, emphatic] '), 'ElevenLabs gets the author\'s own words'); assert.ok(!/\[/.test(j[6].engines.edge.text));
   assert.equal(j[6].emotion, 'serious', 'firm is serious');
 });
-test('a word in a tag that is neither an emotion nor a delivery word is an error with a suggestion; stray brackets are caught', () => {
+test('a misspelled word in a tag is an error with a suggestion (a new word is not)', () => {
   const m = (from, to, re) => { const d = aiProject(); edit(SC(d), from, to); const r = run('check', 'script', d); assert.equal(r.code, 1, `${from} -> ${to}\n${r.out}`); assert.match(r.out, re); };
-  m('[thoughtful, slower]', '[thoughtful, slowr]', /"slowr" is neither an emotion nor a delivery word \(did you mean slower\?\)/);
-  m('[impressed] Cepat', '[Applause] Cepat', /\[Applause\] has no emotion in it/);
-  m('[calm, reassuring]', '[reassuring]', /has no emotion in it/);
-  m('[concerned]', '[worriedd]', /did you mean/);
+  m('[thoughtful, slower]', '[thoughtful, slowr]', /"slowr" looks like a misspelling of "slower"/);
+  m('[concerned]', '[worriedd]', /looks like a misspelling of "worried"/);
 });
 test('modifiers change the delivery numbers, not the emotion', () => {
   const {tags} = E.loadEmotions(); const a = E.voiceSettings('thoughtful'), b = E.voiceSettings('thoughtful', ['slower']); assert.equal(b.rate, a.rate - 8); assert.equal(E.voiceSettings('serious', ['emphatic']).volume, tags.serious.voice.volume + 3);
   assert.ok(E.moodFor('calm', ['reassuring']).face.smile > tags.calm.face.smile); assert.ok(E.moodFor('serious', ['emphatic']).body.bounce > tags.serious.body.bounce);
   assert.ok(E.moodFor('calm', ['reassuring']).face.smile <= 1 && E.moodFor('excited', ['reassuring']).face.smile <= 1, 'clamped');
   assert.ok(Math.abs(E.voiceSettings('sad', ['slower', 'slower', 'whisper']).rate) <= 20, 'the rate stays natural however many modifiers pile up');
-  assert.deepEqual(E.parseTag('firm, emphatic'), {tag: 'serious', mods: ['emphatic'], bad: []}); assert.deepEqual(E.parseTag('calm reassuring'), {tag: 'calm', mods: ['reassuring'], bad: []});
+  assert.deepEqual(E.parseTag('firm, emphatic'), {tag: 'serious', found: true, also: [], mods: ['emphatic'], free: [], typos: []}); assert.deepEqual(E.parseTag('calm reassuring'), {tag: 'calm', found: true, also: [], mods: ['reassuring'], free: [], typos: []});
 });
 test('vo-split cuts one recording into the line files at its pauses', { skip: !hasFfmpegHere && 'needs ffmpeg' }, () => {
   const d = project(); const wav = path.join(tmp, 'one-take.wav'); const spans = [[0.4, 2.5], [3.6, 7.0], [8.4, 13.2], [14.4, 19.8], [21.2, 23.3], [25.0, 28.0]];
@@ -395,4 +393,61 @@ test('explain tells the storyboard in words, and only at Gate 2', () => {
   run('check', 'storyboard', d); const x = e.out; assert.ok(x.length > 500);
   run('submit', 'script', d); run('approve', 'script', d, '--evidence', 'ya oke'); const s = run('submit', 'storyboard', d, '--estimate', 'r'); assert.equal(s.code, 0, s.out);
   assert.match(s.out, /STORYBOARD, in plain words/); assert.match(s.out, /explain ONLY the storyboard/); assert.match(s.out, /Delivery arc:\s+warm → serious → proud → excited → proud → excited/); assert.match(s.out, /Transition in: fade 0\.4 s/);
+});
+
+// ---------- an open vocabulary ----------
+test('any emotion word works: presets are tuned, other words are placed between them, nothing is a closed list', () => {
+  const E0 = E.loadEmotions(); const {tags, lexicon, aliases, valence} = E0;
+  assert.ok(Object.keys(lexicon).length >= 150, 'a wide shipped lexicon'); assert.ok(E.lexiconWords().length >= 150);
+  for (const [w, [v, a]] of Object.entries(lexicon)) { assert.ok(v >= -1 && v <= 1 && a >= 0 && a <= 1, `${w} point`); assert.ok(!tags[w] && !aliases[w] && !E0.modifiers[w] && !E0.modifierAliases[w], `${w} must not shadow a preset, alias or delivery word`); }
+  for (const k of Object.keys(tags)) assert.ok(typeof valence[k] === 'number', `valence of ${k}`);
+  for (const [w, to] of Object.entries(aliases)) assert.ok(tags[to], `alias ${w} -> ${to}`);
+  const near = (w) => E.profileOf(w).nearest;
+  // words land among the right presets, and fear is not anger
+  assert.equal(near('furious'), 'mad'); assert.equal(near('melancholic'), 'sad'); assert.ok(['excited', 'laugh'].includes(near('ecstatic')), 'ecstatic sits between excited and laugh'); assert.equal(near('tender'), 'warm'); assert.equal(near('bored'), 'tired');
+  assert.equal(E.resolveEmotion('terrified'), 'afraid', 'fear has its own face, not mad\'s'); assert.equal(E.resolveEmotion('exhausted'), 'tired'); assert.equal(E.resolveEmotion('firm'), 'serious'); assert.equal(E.resolveEmotion('zzzzzz'), null);
+  for (const w of [...Object.keys(lexicon)]) { const p = E.profileOf(w); const f = p.face; assert.ok(f.smile >= -1 && f.smile <= 1 && f.brow >= -1 && f.brow <= 1 && f.raise >= 0 && f.raise <= 1 && f.eye >= 0.6 && f.eye <= 1.4 && Math.abs(f.tilt) <= 0.2, w); assert.ok(Math.abs(p.voice.rate) <= 15 && p.gestures.every((g) => ['wave', 'point', 'present'].includes(g)), w); }
+  // the blend follows the point: more energetic = more energy and a faster voice; more pleasant = more smile
+  assert.ok(E.profileOf('furious').energy > E.profileOf('gloomy').energy && E.profileOf('furious').voice.rate > E.profileOf('gloomy').voice.rate); assert.ok(E.profileOf('delighted').face.smile > E.profileOf('disappointed').face.smile);
+  assert.ok(E.profileOf('furious').face.brow > 0.8 && E.profileOf(E.resolveEmotion('terrified')).face.raise > 0.8, 'furious frowns hard, terrified lifts its brows');
+  assert.deepEqual(E.profileOf('mad'), E.profileOf(E.resolveEmotion('angry')), 'an alias is its preset exactly');
+  // families: anger, fear and disgust cannot be told apart by valence and arousal alone, so the words of a family take that preset's face, scaled by intensity
+  const brow = (w) => E.profileOf(w).face.brow; assert.ok(brow('furious') >= brow('indignant') && brow('indignant') > brow('irritated') && brow('irritated') >= brow('annoyed') && brow('annoyed') > 0.5, 'anger grows with intensity');
+  assert.equal(near('indignant'), 'mad'); assert.equal(near('nervous'), 'afraid'); assert.ok(E.profileOf('nervous').face.raise > 0.5 && brow('nervous') < 0, 'a nervous face lifts worried brows, it does not frown'); assert.equal(near('gloomy'), 'sad'); assert.ok(E.profileOf('bored').face.eye < 0.8);
+  for (const [w, v] of Object.entries(lexicon)) if (v[2]) assert.ok(tags[v[2]], `${w}: family ${v[2]} is not a preset`);
+  assert.ok(E.profileOf('calm', ['afraid']).face.eye > E.profileOf('calm').face.eye && E.profileOf('calm', ['afraid']).energy > E.profileOf('calm').energy, 'a second emotion in the tag mixes in');
+});
+test('a new word is a warning, a misspelling is an error, and the project can define its own words', () => {
+  const t = (raw) => E.parseTag(raw);
+  assert.deepEqual([t('nostalgic').found, t('nostalgic').tag, t('gembira').found], [true, 'nostalgic', true]);
+  assert.deepEqual([t('Applause').found, t('Applause').free, t('Applause').typos], [false, ['Applause'], []], 'unknown and not a typo: free');
+  assert.equal(t('serios').typos[0].suggestion, 'serious'); assert.deepEqual(t('mad').typos, [], 'short real words are never "corrected"'); assert.deepEqual(t('excited, nervous').also, ['nervous']);
+  const d = aiProject(); edit(SC(d), '[impressed] Cepat', '[Applause] Cepat'); edit(SC(d), '[curious] Pernah', '[nostalgic] Pernah'); edit(SC(d), '[concerned]', '[terrified]');
+  const r = run('check', 'script', d); assert.equal(r.code, 0, r.out); assert.match(r.out, /\[Applause\] is not a known emotion: the face stays neutral/); assert.ok(!/nostalgic.*not a known/.test(r.out) && !/terrified.*not a known/.test(r.out));
+  assert.match(r.out, /nostalgic\s/); assert.match(r.out, /afraid/, 'terrified is shown as afraid');
+  run('submit', 'script', d); const j = JSON.parse(fs.readFileSync(path.join(d, 'Asset/agen/vo-lines.json'), 'utf8')).lines;
+  assert.equal(j[0].emotion, 'nostalgic'); assert.equal(j[0].engines.elevenlabs.startsWith('[nostalgic] '), true); assert.ok(!/\[/.test(j[0].engines.edge.text)); assert.match(j[1].engines.elevenlabs, /^\[Applause\] Cepat/, 'ElevenLabs takes free-form tags as written'); assert.ok(!/Applause/.test(j[1].engines.edge.text) && !/Applause/.test(j[1].engines.voicestudio), 'engines that cannot use it never read it aloud');
+  // the project's own words
+  const c = aiProject(); fs.writeFileSync(path.join(c, 'Storyboard/emotions.custom.json'), JSON.stringify({bittersweet: {va: [0.1, 0.25]}, gloomish: {like: 'sad'}}));
+  edit(SC(c), '[impressed] Cepat', '[bittersweet] Cepat'); edit(SC(c), '[serious] Tapi', '[gloomish] Tapi'); const k = run('check', 'script', c); assert.equal(k.code, 0, k.out); assert.ok(!/bittersweet.*not a known|gloomish.*not a known/.test(k.out)); assert.match(k.out, /bittersweet/);
+  run('submit', 'script', c); const lc = JSON.parse(fs.readFileSync(path.join(c, 'Asset/agen/vo-lines.json'), 'utf8')).lines; assert.equal(lc[1].emotion, 'bittersweet'); E.loadCustomLexicon(path.join(c, 'Storyboard/emotions.custom.json')); assert.equal(E.profileOf('gloomish').nearest, 'sad'); assert.equal(E.profileOf('bittersweet').source, 'custom');
+  E.setCustomLexicon({});
+});
+test('the plan carries an open-vocabulary delivery as numbers, so Remotion needs no table', () => {
+  const d = project(); edit(SC(d), '[serious] Usaha', '[melancholic] Usaha'); edit(SC(d), '[proud] PrvTech', '[triumphant, emphatic] PrvTech');
+  assert.equal(run('check', 'script', d).code, 0); const r = run('check', 'storyboard', d); assert.equal(r.code, 0, r.out);
+  const plan = JSON.parse(fs.readFileSync(path.join(d, 'Storyboard/plan.json'), 'utf8')); const seg = (t) => plan.emotions.segments.find((x) => x.tag === t);
+  assert.ok(seg('melancholic') && seg('triumphant')); assert.deepEqual(seg('triumphant').mods, ['emphatic']); assert.ok(seg('melancholic').face.smile < 0 && seg('triumphant').face.smile > 0.5 && seg('melancholic').energy < 0.3 && seg('triumphant').energy > 0.7);
+  assert.ok(seg('triumphant').gestures.includes('present') && !seg('melancholic').gestures.includes('wave'));
+});
+
+// ---------- the skill file itself ----------
+test('SKILL.md front matter is valid YAML: an unquoted value with ": " broke GitHub and strict parsers', () => {
+  const t = fs.readFileSync(path.join(SK, 'SKILL.md'), 'utf8'); const m = t.match(/^---\n([\s\S]*?)\n---\n/); assert.ok(m, 'front matter'); const lines = m[1].split('\n');
+  const kv = Object.fromEntries(lines.map((l) => { const i = l.indexOf(': '); return [l.slice(0, i), l.slice(i + 2)]; })); assert.equal(kv.name, 'removid', 'name equals the directory'); assert.ok(kv.description && kv['argument-hint']);
+  for (const l of lines) { const v = l.slice(l.indexOf(': ') + 2); if (/^["'>|\[{]/.test(v)) continue; assert.ok(!/: |\s#/.test(v), `unquoted value with ": " or " #" is invalid YAML: ${l.slice(0, 70)}...`); }
+  assert.ok(kv.description.startsWith('"') && kv.description.endsWith('"'), 'quote the description'); assert.ok(kv.description.length < 1100, 'a long description costs context in every session');
+  const py = spawnSync('python3', ['-c', 'import sys,yaml; d=yaml.safe_load(sys.stdin.read()); assert d["name"]=="removid" and isinstance(d["description"],str)'], {input: m[1], encoding: 'utf8'});
+  if (!/No module named/.test(py.stderr || '')) assert.equal(py.status, 0, py.stderr);
+  const mut = m[1].replace('description: "', 'description: '); const yamlBad = spawnSync('python3', ['-c', 'import sys,yaml; yaml.safe_load(sys.stdin.read())'], {input: mut.replace(/"$/m, ''), encoding: 'utf8'}); if (!/No module named/.test(yamlBad.stderr || '')) assert.notEqual(yamlBad.status, 0, 'the unquoted form must fail, or this test proves nothing');
 });

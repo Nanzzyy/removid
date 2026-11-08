@@ -37,7 +37,7 @@ Narrated only. `project.mjs vo-lines <proj> --engine <name>` writes the per-line
 
 ## 3b. Character (narrated, with a character)
 
-Design it before the storyboard (`character-and-narration.md`): `project.mjs scaffold <proj> --preview` copies the starter (nothing is built), `npm install` in `Source/remotion`, add the character to `src/characters/index.ts`, `npm run character -- <id>` and `npm run character -- <id> --emotions` (all fifteen faces), look at both sheets, show the user, revise, then `project.mjs set-character <proj> <id>` (or `none` for a voice-only video). The storyboard cannot be submitted while the character is `undecided`.
+Design it before the storyboard (`character-and-narration.md`): `project.mjs scaffold <proj> --preview` copies the starter (nothing is built), `npm install` in `Source/remotion`, add the character to `src/characters/index.ts`, `npm run character -- <id>` and `npm run character -- <id> --emotions` (all eighteen preset faces), look at both sheets, show the user, revise, then `project.mjs set-character <proj> <id>` (or `none` for a voice-only video). The storyboard cannot be submitted while the character is `undecided`.
 
 ## 4. Storyboard (Gate 2)
 

@@ -33,7 +33,7 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {resolveStyle, loadStyles, recommend, intake as intakeBrief, TRANSITIONS} from './lib-style.mjs';
 import {voiceUrl, probe, synth, assertLocal} from './lib-voice.mjs';
-import {canonical, suggest, suggestAny, vocabulary, modifiers as allModifiers, extractTags, renderLine, edgeArgs, timeline as emoTimeline, energy as emoEnergy, loadEmotions, emotionsTs, tempoFor, ENGINES} from './lib-emotion.mjs';
+import {canonical, resolveEmotion, typoOf, loadCustomLexicon, lexiconWords, suggest, suggestAny, vocabulary, modifiers as allModifiers, extractTags, renderLine, edgeArgs, timeline as emoTimeline, energy as emoEnergy, loadEmotions, emotionsTs, tempoFor, ENGINES} from './lib-emotion.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TPL = path.join(HERE, '..', 'templates', 'project');
@@ -102,7 +102,7 @@ function findProject(arg, opt) {
   die(hits.length ? `ambiguous project "${arg}":\n  ${hits.join('\n  ')}` : `no project "${arg}" under ${root} (use a path, --root or REMOVID_ROOT)`, hits.length ? 2 : 1);
 }
 const P = (proj, ...r) => path.join(proj, ...r);
-function loadProject(proj) { const t = read(P(proj, 'PROJECT.md')); const {data, body} = readFront(t); return {data, body}; }
+function loadProject(proj) { loadCustomLexicon(P(proj, 'Storyboard', 'emotions.custom.json')); const t = read(P(proj, 'PROJECT.md')); const {data, body} = readFront(t); return {data, body}; }
 function saveProject(proj, data, body) { fs.writeFileSync(P(proj, 'PROJECT.md'), `---\n${dumpYaml(data)}---\n${body}`); }
 function logLine(proj, text) { const {data, body} = loadProject(proj); saveProject(proj, data, body.replace(/\s*$/, '\n') + `- ${now()} — ${text}\n`); }
 const narrated = (data) => String(data.narration).toLowerCase() === 'yes';
@@ -194,7 +194,7 @@ function checkScript(proj) {
     if (i && b.start > blocks[i - 1].end + 1e-9) I(`${f2(b.start - blocks[i - 1].end)} s visual-only beat before ${tag}`);
     const need = talk ? speechSec(b.text, wps) : Math.max(READ_MIN, READ_SEC_PER_WORD * b.words);
     const room = Math.floor(Math.max(0, win - (talk ? 0.3 : 0)) * (talk ? wps : 1 / READ_SEC_PER_WORD));
-    rows.push({i: i + 1, label: b.label, start: b.start, end: b.end, win, words: b.words, need, room, emotion: b.tags.map((t) => (t.tag ? t.tag + (t.mods.length ? '+' + t.mods.join('+') : '') : '?')).join('>')});
+    rows.push({i: i + 1, label: b.label, start: b.start, end: b.end, win, words: b.words, need, room, emotion: b.tags.map((t) => (t.found ? t.tag : t.mods.length ? 'neutral' : '?') + (t.also.length ? '&' + t.also.join('&') : '') + (t.mods.length ? '+' + t.mods.join('+') : '')).join('>')});
     if (need > win) E(`${tag}: needs ~${f2(need)} s but the window is ${f2(win)} s (${b.words} words; about ${room} fit). Cut words or widen the window.`);
     else if (need > win - 0.3) W(`${tag}: needs ~${f2(need)} s of a ${f2(win)} s window, no breathing room`);
     if (talk && !report && win > 2 && need < 0.4 * win) I(`${tag}: speech fills only ${Math.round(100 * need / win)}% of the window (fine if it is a visual beat)`);
@@ -233,12 +233,13 @@ function checkScript(proj) {
     const known = vocabulary();
     blocks.forEach((b, i) => {
       const tag = `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`;
-      if (v2 && !b.tags.length) E(`${tag}: no emotion tag. Open the line with one, for example [curious] (${known.join(', ')})`);
+      if (v2 && !b.tags.length) E(`${tag}: no emotion tag. Open the line with one, for example [curious] or [nostalgic]: any emotion word works (tuned presets: ${known.join(', ')})`);
       else if (v2 && b.tags[0].at !== 0) E(`${tag}: the first tag comes after word ${b.tags[0].at}; the line must open with its emotion`);
       if (b.tags.length > 2) E(`${tag}: ${b.tags.length} emotion tags in one block; at most 2 (the face changes once inside a line)`);
       b.tags.forEach((t, k) => {
-        if (!t.tag) { eLevel(`${tag}: [${t.raw}] has no emotion in it${suggestAny(t.raw) ? ` (did you mean [${suggestAny(t.raw)}]?)` : ''}. Open with one of: ${known.join(', ')}; delivery words may follow after a comma: ${allModifiers().join(', ')}`); return; }
-        if (t.bad.length) { eLevel(`${tag}: [${t.raw}]: "${t.bad.join('", "')}" is neither an emotion nor a delivery word${suggestAny(t.bad[0]) ? ` (did you mean ${suggestAny(t.bad[0])}?)` : ''}. Delivery words: ${allModifiers().join(', ')}`); return; }
+        if (t.typos.length) { eLevel(`${tag}: [${t.raw}]: "${t.typos[0].word}" looks like a misspelling of "${t.typos[0].suggestion}"`); return; }
+        if (!t.found && !t.mods.length) W(`${tag}: [${t.raw}] is not a known emotion: the face stays neutral, ElevenLabs gets it as written and other engines drop it. Use a known word, or define yours in Storyboard/emotions.custom.json ({"${t.raw.toLowerCase()}": {"va": [valence, arousal]}} or {"like": "sad"})`);
+        else if (t.free.length) W(`${tag}: "${t.free.join('", "')}" in [${t.raw}] is not a known emotion or delivery word; it reaches only engines that take free-form tags`);
         const segWords = (b.tags[k + 1]?.at ?? b.words) - t.at;
         if (b.tags.length > 1 && segWords / wps < 0.8) E(`${tag}: [${t.tag}] covers ${segWords} word(s), about ${f2(segWords / wps)} s; a face needs 0.8 s to show an emotion. Merge it into the neighbour.`);
       });
@@ -302,7 +303,7 @@ function checkStructure(proj) {
       for (const f of foot) { const m = f.match(/^(\S+)\s+(\d+(?:[.,]\d+)?)\s*[–—-]\s*(\d+(?:[.,]\d+)?)/); if (!m) { E(`${tag}: footage must look like: clip.mp4 12.0–15.0`); continue; } if (num(m[3]) - num(m[2]) < t.b - t.a - 1e-9) E(`${tag}: footage ${f} gives ${f2(num(m[3]) - num(m[2]))} s but the beat lasts ${f2(t.b - t.a)} s`); if (!exists(P(proj, 'Raw-Footage', m[1])) && !exists(P(proj, 'Asset', 'owner', m[1]))) W(`${tag}: ${m[1]} is not in Raw-Footage/ or Asset/owner/ yet`); }
     }
     let emo = null; const eraw = (get('emotion')[0] || '').trim();
-    if (talk) { if (!eraw) E(`${tag}: needs "- emotion: curious" (how it is delivered; ${vocabulary().join(', ')})`); else { emo = canonical(eraw); if (!emo) E(`${tag}: emotion "${eraw}" is not known${suggest(eraw) ? ` (did you mean ${suggest(eraw)}?)` : ''}. Known: ${vocabulary().join(', ')}`); } }
+    if (talk) { if (!eraw) E(`${tag}: needs "- emotion: curious" (how it is delivered: any emotion word; ${vocabulary().length} tuned presets, ${lexiconWords().length}+ more known: ${vocabulary().join(', ')} ...)`); else { emo = resolveEmotion(eraw); const ty = emo ? null : typoOf(eraw); if (ty) E(`${tag}: emotion "${eraw}" looks like a misspelling of "${ty}"`); else if (!emo) W(`${tag}: emotion "${eraw}" is not a known word; the face stays neutral (add it to Storyboard/emotions.custom.json, or use a known word)`); } }
     for (const x of claimTerms(info)) if (sc && !claimCovered(x, sc.claims)) W(`${tag}: "info" mentions "${x}", a number, offer or domain; give it a row under ## Claims before the script`);
     beats.push({n: b.n, name: b.name, start: t.a, end: t.b, purpose, shows, info, source, emotion: emo, vo: (get('vo')[0] || 'yes').toLowerCase() === 'none' ? 'none' : 'yes'});
   });
@@ -520,7 +521,7 @@ function checkStoryboard(proj) {
         const span = (k) => (seg ? {s: seg[k].start, e: seg[k].end} : {s: vos[k].start + 0.1, e: vos[k].end - 0.1});
         const timeAt = (w) => { let k = lines.findIndex((l) => w >= l.first && w < l.first + l.words); if (k < 0) k = lines.length - 1; const sp = span(k); return sp.s + ((w - lines[k].first) / Math.max(1, lines[k].words)) * (sp.e - sp.s); };
         const moments = []; let base = 0;
-        for (const x of sb) { for (const t of x.tags) if (t.tag) moments.push({at: timeAt(base + t.at), tag: t.tag, mods: t.mods}); base += x.words; }
+        for (const x of sb) { for (const t of x.tags) if (t.tag) moments.push({at: timeAt(base + t.at), tag: t.tag, mods: t.mods, also: t.also}); base += x.words; }
         emotions = emoTimeline(moments, span(lines.length - 1).e);
         emotions.segments.forEach((x, k, all) => { if (k < all.length - 1 && x.end - x.start < 0.8 - 1e-9) E(`delivery [${x.tag}] lasts ${f2(x.end - x.start)} s (${f2(x.start)}–${f2(x.end)}); a face needs 0.8 s to show an emotion. Merge it with its neighbour in SCRIPT.md.`); });
       }
@@ -580,7 +581,7 @@ const hashScript = (proj) => {
   if (!exists(P(proj, 'Storyboard', 'SCRIPT.md'))) return '';
   const blocks = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks; const hs = hashStructure(proj);
   // The delivery (emotion tags) and the structure are part of what the user approves; a script without either hashes exactly as before.
-  return sha(blocks.map((b) => `${b.start}-${b.end}${b.tags.length ? ' ' + b.tags.map((t) => `${t.tag || t.raw}${t.mods?.length ? '+' + t.mods.join('+') : ''}@${t.at}`).join(',') : ''} ${b.text}`).join('\n') + (hs ? '\n#structure ' + hs : ''));
+  return sha(blocks.map((b) => `${b.start}-${b.end}${b.tags.length ? ' ' + b.tags.map((t) => `${t.raw.toLowerCase().replace(/\s+/g, ' ')}@${t.at}`).join(',') : ''} ${b.text}`).join('\n') + (hs ? '\n#structure ' + hs : ''));
 };
 function hashStoryboard(proj, data) {
   if (!exists(P(proj, 'Storyboard', 'STORYBOARD.md'))) return '';
@@ -678,9 +679,9 @@ function writeVoLines(proj, engine) {
   const blocks = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks.filter((b) => b.text); const dir = P(proj, 'Asset', 'agen'); fs.mkdirSync(dir, {recursive: true});
   const dflt = loadEmotions().default;
   const lines = blocks.map((b, i) => {
-    const tags = b.tags.filter((t) => t.tag); const tag = tags[0]?.tag || dflt; const mods = tags[0]?.mods || [];
-    return {n: i + 1, label: b.label, start: b.start, end: b.end, emotion: tag, ...(mods.length ? {modifiers: mods} : {}), emotions: tags.map((t) => ({tag: t.tag, ...(t.mods.length ? {modifiers: t.mods} : {}), afterWord: t.at})), text: b.text,
-      engines: {plain: renderLine(b.rawText, 'plain'), edge: {text: renderLine(b.rawText, 'edge'), ...edgeArgs(tag, mods)}, elevenlabs: renderLine(b.rawText, 'elevenlabs'), chatterbox: renderLine(b.rawText, 'chatterbox'), voicestudio: renderLine(b.rawText, 'voicestudio')}};
+    const tags = b.tags.filter((t) => t.tag); const tag = tags[0]?.tag || dflt; const mods = tags[0]?.mods || [], also = tags[0]?.also || [];
+    return {n: i + 1, label: b.label, start: b.start, end: b.end, emotion: tag, ...(also.length ? {also} : {}), ...(mods.length ? {modifiers: mods} : {}), emotions: tags.map((t) => ({tag: t.tag, ...(t.mods.length ? {modifiers: t.mods} : {}), afterWord: t.at})), text: b.text,
+      engines: {plain: renderLine(b.rawText, 'plain'), edge: {text: renderLine(b.rawText, 'edge'), ...edgeArgs(tag, mods, also)}, elevenlabs: renderLine(b.rawText, 'elevenlabs'), chatterbox: renderLine(b.rawText, 'chatterbox'), voicestudio: renderLine(b.rawText, 'voicestudio')}};
   });
   fs.writeFileSync(P(dir, 'vo.txt'), blocks.map((b) => b.text).join('\n') + '\n');
   fs.writeFileSync(P(dir, 'vo-script.txt'), voScriptText(blocks));
@@ -888,7 +889,7 @@ const COMMANDS = {
     const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project');
     if (!exists(P(proj, 'Storyboard', 'SCRIPT.md'))) die('Storyboard/SCRIPT.md is missing');
     const sc = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))); const blocks = sc.blocks.filter((b) => b.text); if (!blocks.length) die('the script has no lines');
-    const bad = blocks.filter((b) => b.tags.some((t) => !t.tag || t.bad.length)).length; if (bad) die(`${bad} line(s) carry a tag removid does not know; run \`check script\` first`);
+    const bad = blocks.filter((b) => b.tags.some((t) => t.typos.length)).length; if (bad) die(`${bad} line(s) carry a misspelled tag; run \`check script\` first`);
     fs.mkdirSync(P(proj, 'Asset', 'agen'), {recursive: true}); const text = voScriptText(blocks); fs.writeFileSync(P(proj, 'Asset', 'agen', 'vo-script.txt'), text); process.stdout.write(text);
   },
   'vo-split'(pos, opt) {
@@ -929,7 +930,7 @@ const COMMANDS = {
     for (const l of lines) {
       const text = l.engines.voicestudio; if (!text) die(`line ${l.n} has no speakable text after the tags were translated`);
       const wav = await synth(url, text, {voice: opt.voice && opt.voice !== true ? String(opt.voice) : 'alloy'}); const f = P(dir, `line${l.n}.wav`); fs.writeFileSync(f, wav);
-      const tempo = tempoFor(l.emotion, l.modifiers || []);
+      const tempo = tempoFor(l.emotion, l.modifiers || [], l.also || []);
       if (Math.abs(tempo - 1) > 0.005) { const t = f.replace(/\.wav$/, '.tmp.wav'); const r = spawnSync(ffbin('ffmpeg'), ['-hide_banner', '-loglevel', 'error', '-y', '-i', f, '-filter:a', `atempo=${tempo.toFixed(3)}`, t], {encoding: 'utf8'}); if (r.status !== 0) die('ffmpeg atempo failed: ' + (r.stderr || '').split('\n').slice(-3).join(' ')); fs.renameSync(t, f); }
       out(`  line ${l.n} [${l.emotion}] -> ${path.relative(proj, f)} (${wav.length} bytes, tempo ${tempo.toFixed(2)})`);
     }

@@ -13,7 +13,7 @@ contiguous from 0 to the duration. Keys (one per line):
 - source: remotion | footage | remotion+footage
 - footage: clip.mp4 12.0–15.0          (only when the source includes footage: which file, which part; at least as long as the beat)
 - info: the ONE thing the viewer takes from this beat (3-16 words)
-- emotion: curious                      (narrated videos: neutral warm curious confused surprised excited laugh proud serious mad sad calm)
+- emotion: curious                      (narrated videos: how it is delivered; any emotion word works, see references/emotion-and-voice.md)
 - vo: none                              (optional: a beat with no spoken words)
 Checked by `project.mjs check script` (narrated) or `check storyboard` (silent). Gate 1 approves the structure and the script together.
 -->
