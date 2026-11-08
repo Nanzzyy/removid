@@ -64,9 +64,10 @@ for agent in "${AGENTS[@]}"; do
   else mkdir -p "$dest" && (cd "$SRC" && tar --exclude=node_modules --exclude=out --exclude=.remotion -cf - .) | (cd "$dest" && tar -xf -); echo "copied   [$agent] $dest"; fi
 done
 
-if [ "$ACTION" = install ]; then cat <<'EOF'
+if [ "$ACTION" = install ]; then echo; echo "installed removid $(cat "$SRC/VERSION" 2>/dev/null || echo '?')  (check later with: node $SRC/scripts/project.mjs version)"; cat <<'EOF'
 
 Restart the agent session so it picks the skill up.
+A symlink install updates with `git pull`; a --copy install does not: run ./install.sh --copy again after pulling.
   Claude Code : /removid
   Codex       : $removid   (or /skills)
   Antigravity : describe a video task; the skill activates from its description

@@ -6,14 +6,13 @@ argument-hint: "[brief | project name or path | 'doctor' | 'new <Brand> <slug>']
 
 # removid
 
-Two tools, two jobs. Do not blur them.
+## Start here (in this order, before anything else)
 
-| Stage | Tool | Does |
-| --- | --- | --- |
-| **Author** | **Remotion** | Builds and edits every scene: layout, text, UI, cursor, zoom, narrator character, charts, data-driven props. Remotion Studio is the editor. Renders each scene to a clip. |
-| **Cut + assemble** | **HyperFrames** | Takes rendered clips and raw footage: trim, split, reorder, overlap, transitions, music/VO mix, beat-aligned cuts, final render. |
+1. `node <this skill's directory>/scripts/project.mjs version`. If the command does not exist, or it says BEHIND, stop and tell the user to update this skill (`git pull` in their clone, or `./install.sh` again): an old copy lacks the steps below and will produce the old, wrong flow.
+2. **Draft nothing in chat**: no script, no plan, no shot list, no "stages". Everything lives in the project folder and is shown by the tool: `intake "<the user's words>" --json`, ask only what it returns, `new`, then `STRUCTURE.md` and `SCRIPT.md`.
+3. **At Gate 1 your message is the tool's two blocks**: the structure table, and the VO SCRIPT in a code block (only the lines, each opening with its emotion tag, a blank line between). It has no stage labels ("Tahap 1"), no shots, no zoom ideas, no length estimate: those are the storyboard, explained at Gate 2 with `explain`. Never ask where the user's audio is or how long it is: `vo` and `vo-split` measure the file. `references/messages.md` says what to show at every stop.
 
-Never author scenes in HyperFrames HTML, and never port Remotion work into HyperFrames HTML. Hand clips over as video files (`references/handoff.md`).
+Two tools, two jobs. Do not blur them: **Remotion** authors and edits every scene (layout, text, UI, cursor, zoom, narrator, charts) and renders each to a clip; **HyperFrames** only cuts and assembles rendered clips and raw footage (trim, order, transitions, music/VO mix, final render). Never author scenes in HyperFrames HTML (`references/handoff.md`).
 
 ## Defaults
 
@@ -77,7 +76,7 @@ Approval means the user's own words, passed to `approve --evidence "..."`. Chang
 
 ## Hard rules
 
-- **Say each thing once, at its own stop** (`references/messages.md`). At Gate 1 show the structure and, separately, the clean VO script (only the lines with their emotion tags: no times, labels, scene directions or zoom ideas; it is what the user takes to any TTS). Zoom highlights, cursor, transitions and what is on screen second by second are the storyboard: explain them at Gate 2 with `explain`, and only them. Never ask how long the user's audio is; `vo`, `vo-split` and `vo-place` measure it.
+- Say each thing once, at its own stop (`references/messages.md`).
 - The folder schema is mandatory (`references/project-folder.md`): never work outside the project folder; if `status` says FOLDER INCOMPLETE, run `repair`. Every file the build uses is listed in `Asset/ASSETS.md`.
 - No script, no storyboard, no build: do not write scene code or render before the matching `project.mjs gate` says open. Never skip a gate because the video is short or the user sounds in a hurry; a one-frame storyboard is still a storyboard.
 - Order is fixed: intake, style, structure, script, voice, character, storyboard. The voice is never made before the script is approved.

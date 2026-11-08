@@ -29,6 +29,16 @@ Override a path with `REMOVID_CLAUDE_DIR`, `REMOVID_CODEX_DIR` or `REMOVID_ANTIG
 
 Requirements: Node.js 22.18+ (the starter runs `.ts` check scripts directly), FFmpeg (a full build for HyperFrames renders). Check with `skills/removid/scripts/doctor.sh` or `/removid doctor`.
 
+## Updating, and checking which version an agent is running
+
+A symlink install (the default) updates with `git pull` in your clone; a `--copy` install does not (run `./install.sh --copy` again). Restart the agent session afterwards. To see what an agent will really use:
+
+```bash
+node ~/.claude/skills/removid/scripts/project.mjs version     # version, commit, features, and "BEHIND origin/main by N" when it is
+```
+
+Its output on an old copy is an error (`usage: ...` without `version`): that is the sign the skill is stale, and an old copy produces the old flow (scripts with stage labels, no emotion tags, no interview rounds). `CHANGELOG.md` says what each version added. `SKILL.md` makes the agent run this first.
+
 ## What is inside
 
 ```

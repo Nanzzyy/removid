@@ -451,3 +451,18 @@ test('SKILL.md front matter is valid YAML: an unquoted value with ": " broke Git
   if (!/No module named/.test(py.stderr || '')) assert.equal(py.status, 0, py.stderr);
   const mut = m[1].replace('description: "', 'description: '); const yamlBad = spawnSync('python3', ['-c', 'import sys,yaml; yaml.safe_load(sys.stdin.read())'], {input: mut.replace(/"$/m, ''), encoding: 'utf8'}); if (!/No module named/.test(yamlBad.stderr || '')) assert.notEqual(yamlBad.status, 0, 'the unquoted form must fail, or this test proves nothing');
 });
+
+// ---------- which version is the agent running ----------
+test('the skill carries a version, a changelog that matches it, and a command that shows it', () => {
+  const v = fs.readFileSync(path.join(SK, 'VERSION'), 'utf8').trim(); assert.match(v, /^\d+\.\d+\.\d+$/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8'), new RegExp(`^## ${v.replace(/\./g, '\\.')}$`, 'm'), 'CHANGELOG top entry must be the VERSION');
+  const r = run('version', '--no-fetch'); assert.equal(r.code, 0, r.out); assert.match(r.out, new RegExp(`^removid ${v.replace(/\./g, '\\.')}`)); for (const f of ['intake (two rounds)', 'checked styles', 'clean voice script', 'cut one recording', 'storyboard walkthrough', 'folder repair', 'voice routes']) assert.ok(r.out.includes(f), f);
+  const j = JSON.parse(run('version', '--no-fetch', '--json').out); assert.equal(j.version, v); assert.ok(j.features.length >= 7);
+  const inst = spawnSync('bash', [path.join(ROOT, 'install.sh'), '--project', path.join(tmp, 'instproj')], {encoding: 'utf8'}); assert.equal(inst.status, 0, inst.stderr); assert.ok(inst.stdout.includes(`installed removid ${v}`) && inst.stdout.includes('project.mjs version'), 'the installer says which version it installed and how to check it');
+});
+test('SKILL.md starts with the rules whose absence produced the wrong flow in a real session', () => {
+  const t = fs.readFileSync(path.join(SK, 'SKILL.md'), 'utf8'); const body = t.slice(t.indexOf('# removid')); const start = body.indexOf('## Start here'); assert.ok(start >= 0 && start < body.indexOf('## Defaults'), 'Start here comes before everything else');
+  const block = body.slice(start, body.indexOf('## Defaults'));
+  for (const must of ['project.mjs version', 'BEHIND', 'Draft nothing in chat', 'VO SCRIPT', 'Tahap 1', 'no zoom ideas', 'Never ask where the user\'s audio is', 'messages.md']) assert.ok(block.includes(must), `Start here must say: ${must}`);
+  assert.ok(t.split('\n').length <= 100, 'SKILL.md stays under 100 lines');
+});

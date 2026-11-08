@@ -10,6 +10,7 @@
 //   node project.mjs vo-script <project>   the CLEAN voice script: only the lines with their emotion tags, a blank line between, nothing else (Asset/agen/vo-script.txt)
 //   node project.mjs vo-split <project> <audio> [--min-gap S] [--force]   cut ONE recording into Asset/agen/line1..N.wav at the pauses (the user's TTS output, cut for them)
 //   node project.mjs explain <project>   the storyboard in plain words, frame by frame (what is on screen, zoom highlights, transitions): what to tell the user at Gate 2
+//   node project.mjs version [--json] [--no-fetch]   the skill version this agent is running, its features, and whether it is behind origin/main
 //   node project.mjs voice-check [--url URL]   read-only: which voice routes exist here (agent default, a local speech server, the user's own audio)
 //   node project.mjs vo-synth <project> [--url URL] [--voice NAME]   OPTIONAL: speak each line with a local speech server the owner already runs (loopback only; installs nothing)
 //   node project.mjs repair <project>   recreate any missing mandatory folder or template file (never overwrites)
@@ -912,6 +913,21 @@ const COMMANDS = {
     out(`\n${segs.length} lines cut from ${f2(report.duration)} s of audio, measured at ${report.minGap} s pauses. Check by ear that each file holds the right line, then: \`vo-place ${path.basename(proj)} --fit --lufs -15\`.`);
   },
   explain(pos, opt) { const proj = findProject(pos[0], opt); if (!exists(P(proj, 'Storyboard', 'STORYBOARD.md'))) die('Storyboard/STORYBOARD.md is missing'); explainStoryboard(proj); },
+  version(pos, opt) {
+    const skill = path.join(HERE, '..'); const v = exists(path.join(skill, 'VERSION')) ? read(path.join(skill, 'VERSION')).trim() : 'unknown';
+    const need = {'intake (two rounds)': 'intake', 'checked styles': 'style', 'structure + emotion-tagged script': 'check', 'clean voice script': 'vo-script', 'cut one recording': 'vo-split', 'storyboard walkthrough': 'explain', 'folder repair': 'repair', 'voice routes': 'voice-check'};
+    const features = Object.entries(need).filter(([, c]) => COMMANDS[c]).map(([f]) => f);
+    const git = (...a) => spawnSync('git', ['-C', skill, ...a], {encoding: 'utf8', timeout: 9000});
+    const top = git('rev-parse', '--show-toplevel'); const inGit = top.status === 0; const info = {version: v, features, path: skill, git: null};
+    if (inGit) {
+      const head = git('rev-parse', '--short', 'HEAD').stdout.trim(); let state = 'not compared';
+      if (!opt['no-fetch']) { const f = git('fetch', '--quiet', 'origin'); if (f.status === 0) { const n = parseInt(git('rev-list', '--count', 'HEAD..origin/main').stdout, 10); state = n > 0 ? `BEHIND origin/main by ${n} commit(s): run \`git -C ${top.stdout.trim()} pull\` (a symlink install then updates by itself)` : 'up to date with origin/main'; } else state = 'origin not reachable (offline?): not compared'; }
+      info.git = {commit: head, state};
+    }
+    if (opt.json) { out(JSON.stringify(info, null, 1)); return; }
+    out(`removid ${v}${info.git ? ` (commit ${info.git.commit})` : ''}\npath: ${skill}\nfeatures: ${features.join(', ')}`);
+    out(info.git ? `status: ${info.git.state}` : 'status: not a git clone (an installed COPY): it does not update itself. Re-run ./install.sh from a fresh clone of https://github.com/Nanzzyy/removid');
+  },
   async 'voice-check'(pos, opt) {
     const url = voiceUrl(opt); out('Voice routes on this machine (read-only; nothing is installed or started):');
     const ff = spawnSync(ffbin('ffmpeg'), ['-version'], {encoding: 'utf8'}); const edge = spawnSync('edge-tts', ['--version'], {encoding: 'utf8'});
