@@ -7,8 +7,8 @@ One folder per video. It is the single source of truth: a new session, another a
 ├── PROJECT.md        front matter (type, size, fps, narration, voice, character, gates) + the user's brief + decisions + history
 ├── Reference/        the user's references (main guide), one <id>.analysis.md each, REFERENCES.md index
 ├── Raw-Footage/      footage projects only: the user's clips, SOURCES.md (codec, fps, keyframes)
-├── Storyboard/       SCRIPT.md, STORYBOARD.md, plan.json (generated), *.submitted-<time>.md snapshots
-├── Asset/            owner/ (user files, untouched), agen/ (voice, vo.txt, vo-report.json, music), scenes/ (Remotion clips), ASSETS.md
+├── Storyboard/       STRUCTURE.md, SCRIPT.md, STORYBOARD.md, style.json (the chosen style), plan.json (generated: frames, style, emotions, transitions), *.submitted-<time>.md snapshots
+├── Asset/            owner/ (user files, untouched), agen/ (voice, vo.txt, vo-lines.json, vo-report.json, music), scenes/ (Remotion clips), ASSETS.md
 ├── Source/           remotion/ (the project), hyperframes/ (assembly)
 └── Result/           sample/ (10 s), v1/, v2/ ... each with the video and a _source.tgz of Source + Storyboard
 ```
@@ -28,25 +28,31 @@ A gate is a hard stop that a script enforces. Approval is **the user's own words
 
 | Gate | Submit | Approve | Then |
 | --- | --- | --- | --- |
-| 1 Script (narrated only) | `submit script` | `approve script --evidence "..."` | voice, `vo` |
+| 1 Structure + script (narrated only) | `submit script` | `approve script --evidence "..."` | voice (`vo-lines`, `vo-place`) |
 | 2 Storyboard | `submit storyboard` (needs measured audio, or `--estimate "user's reason"`) | `approve storyboard --evidence "..."` | `gate build`, `scaffold`, Remotion |
 | 3 Sample (10 s, draft) | `render --start 0 --end 10 --quality draft` into `Result/sample/` | `approve sample --evidence "..."` | `gate full` |
 | 4 Final | render into `Result/vN/` | `approve final --evidence "..."` | `gate deliver` |
 
 - `submit` runs the checks first and refuses on any error; it snapshots the file and records its hash.
-- Approvals are bound to hashes. Change a spoken word or a time in SCRIPT.md, or anything in STORYBOARD.md, and that gate (and every gate after it) shows `stale` and must be submitted and approved again. Changing a claim's status in `## Claims` does not.
+- Approvals are bound to hashes. Change a spoken word, a time or an emotion tag in SCRIPT.md, anything in STRUCTURE.md, or anything in STORYBOARD.md (the style too), and that gate (and every gate after it) shows `stale` and must be submitted and approved again. Changing a claim's status in `## Claims` does not.
 - `gate <action>` exits 1 and prints why. Run it before: `voice`, `storyboard`, `build`, `sample`, `full`, `deliver`. `full` and `deliver` also refuse while any claim is still `placeholder`.
 - After `submit`, show the user the table and the warnings, then stop. Do not start the next step in the same turn.
 
 ## Commands (`scripts/project.mjs`)
 
 ```
-new <Brand> <slug> --brief "..." [--type motion|footage] [--format landscape|portrait|square] [--duration N] [--narration yes|no] [--voice ...] [--character claude|none|custom]
+intake "<brief>" [--json]          what the brief states, what is assumed, the (at most 4) questions to ask
+style [name|--list|--for "<brief>"]  a style card, the 36 styles, or the three that fit a brief
+new <Brand> <slug> --brief "..." [--type motion|footage] [--format landscape|portrait|square] [--duration N] [--narration yes|no] [--voice ...] [--character <id>|none] [--style NAME] [--language id-ID]
+set-style <proj> <name>           fix the style (Storyboard/style.json; scaffold writes src/style.ts)
+set-character <proj> <id>|none
 status [project]                  gates, stale files, the next step
 check script|storyboard <proj>    numbers and rules; storyboard also writes plan.json when clean
 submit script|storyboard <proj>   check, snapshot, hash, wait for the user
 approve <gate> <proj> --evidence "user's words"
 gate voice|storyboard|build|sample|full|deliver <proj>
+vo-lines <proj> [--engine plain|edge|elevenlabs|chatterbox]
+                                  per-line text and voice settings from the script's emotion tags (Asset/agen/vo-lines.json, lines/lineN.txt)
 vo <proj> <audio> [--min-gap S]  measure the real voice and map it to the script lines (finds the gap that gives one run per line)
 vo-place <proj> [--lead 0.1] [--fit] [--lufs -15]
                                   build vo.wav from Asset/agen/line1..N.* placed at each script window and measure it. Reports every line that does not fit

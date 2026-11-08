@@ -1,5 +1,6 @@
 // Narrator pose as a pure function of time. The 3D component only draws what this returns.
 import {smootherstep} from './ease.ts';
+import {DEFAULT_MOOD, type Mood} from './emotion.ts';
 import type {Point} from './geom.ts';
 import {clamp} from './time.ts';
 
@@ -31,7 +32,9 @@ export type Pose = {
   blink: number; // 0 open .. 1 closed
   breathe: number; // -1..1
   bounce: number; // vertical emphasis hop, 0..1
-  smile: number; // 0..1
+  smile: number; // -1..1 (frown..broad smile); the mood's smile
+  /** The delivery's face and body numbers (brows, eye openness, lean, bounce gain). DEFAULT_MOOD when the scene passes none. */
+  mood: Mood;
   look: Point | null; // screen-space point the eyes and head turn toward
   lookWeight: number;
   armL: ArmPose;
@@ -63,7 +66,7 @@ export function blinkAt(t: number): number {
   return u < 0.5 ? u * 2 : (1 - u) * 2;
 }
 
-export function narratorPose(t: number, talk: number, cues: Cue[], look: Point | null): Pose {
+export function narratorPose(t: number, talk: number, cues: Cue[], look: Point | null, mood: Mood = DEFAULT_MOOD): Pose {
   const arms: Record<Side, ArmPose> = {L: idleArm(), R: idleArm()};
   for (const c of cues) {
     const w = windowed(t, c.start, c.dur);
@@ -87,8 +90,9 @@ export function narratorPose(t: number, talk: number, cues: Cue[], look: Point |
     talk: clamp(talk, 0, 1),
     blink: blinkAt(t),
     breathe: Math.sin(t * Math.PI * 2 * 0.28),
-    bounce: clamp(talk * 1.2, 0, 1),
-    smile: 0.55,
+    bounce: clamp(talk * 1.2 * mood.bounce, 0, 1),
+    smile: mood.smile,
+    mood,
     look: active?.target ?? look,
     lookWeight: active?.target ? windowed(t, active.start, active.dur) : look ? 1 : 0,
     armL: arms.L,

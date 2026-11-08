@@ -6,6 +6,10 @@ Every frame is a pure function of `useCurrentFrame()`: deterministic, scrubbable
 
 `scripts/new-project.sh <dir>` copies `templates/remotion-starter`: two sample scenes (`UiDemo` with cursor and zoom, `Narrator` with the 3D character), the camera/cursor/pose libraries, and the check scripts. Pinned: Remotion 4.0.541, React 19, three 0.186, zod 4.6.7 (all `remotion` and `@remotion/*` packages must share one exact version, and Remotion requires a specific zod: `npx remotion versions` says if they drift). Node 22.18+ (the check scripts run `.ts` directly).
 
+## Style and mood come from the plan too
+
+`project.mjs set-style` + `scaffold` write `src/style.ts` (`STYLE`: palette, easing names, transition, step rate, text limits) and `src/emotions.ts`; `plan.json` carries `style` and `emotions`. Use them instead of local constants: colours from `STYLE.palette`; `enter()`, `move()`, `stagger()` from `lib/style.ts` for animation timing with the style's easing (`lib/ease.ts` `easeNamed`); `stepTime()` for stepped looks; `moodAt(t, plan.emotions)` for the narrator (`character-and-narration.md`). A hard-coded hex colour or a linear `interpolate` in a scene is a defect: the style's family is what keeps several scenes (and several videos) consistent. `npm run check` rejects a style whose easing does not exist or is not a clean 0..1 curve.
+
 ## Lengths come from the plan
 
 `project.mjs scaffold` puts the approved storyboard's frame table at `src/plan.json`. Each composition's `durationFrames` is `plan.frames[n].durationFrames` (or `clipFrames` for a clip with 0.5 s handles); never type a frame count by hand. The scene's `*.data.ts` repeats the storyboard's cursor, zoom and narrator lines in seconds; if the build needs different numbers, that is a storyboard change (re-submit).

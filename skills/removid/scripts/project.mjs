@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 // removid project tool: one folder per video, a script and a storyboard that are CALCULATED, and approval gates.
 //   node project.mjs new <Brand> <slug> [--type motion|footage] [--format landscape|portrait|square]
-//                    [--duration N] [--narration yes|no] [--voice TEXT] [--character <id>|none|undecided]
+//                    [--duration N] [--narration yes|no] [--voice TEXT] [--character <id>|none|undecided] [--style NAME] [--language id-ID]
 //                    --brief "the user's own words" [--root DIR]
+//   node project.mjs intake "<the user's brief>" [--json]   what the brief already says, what is assumed, and the (at most 4) questions still worth asking
+//   node project.mjs style [name] [--list] [--for "<brief>"]   style card, the 36 styles, or the styles that fit a brief
+//   node project.mjs set-style <project> <name>   fix the video style (tokens go to Storyboard/style.json and the Remotion starter)
+//   node project.mjs vo-lines <project> [--engine plain|edge|elevenlabs|chatterbox|voicestudio]   per-line text and voice settings from the script's emotion tags
+//   node project.mjs voice-check [--url URL]   read-only: which voice routes exist here (agent default, a local speech server, the user's own audio)
+//   node project.mjs vo-synth <project> [--url URL] [--voice NAME]   OPTIONAL: speak each line with a local speech server the owner already runs (loopback only; installs nothing)
 //   node project.mjs status [project]
 //   node project.mjs check script|storyboard <project>
 //   node project.mjs submit script|storyboard <project> [--estimate "reason"]
@@ -21,6 +27,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {resolveStyle, loadStyles, recommend, intake as intakeBrief, TRANSITIONS} from './lib-style.mjs';
+import {voiceUrl, probe, synth, assertLocal} from './lib-voice.mjs';
+import {canonical, suggest, vocabulary, extractTags, renderLine, edgeArgs, timeline as emoTimeline, energy as emoEnergy, loadEmotions, emotionsTs, tempoFor, ENGINES} from './lib-emotion.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TPL = path.join(HERE, '..', 'templates', 'project');
@@ -122,7 +131,7 @@ function parseScript(text) {
     if (h) { cur = null; sec = h[1].trim().toLowerCase(); sections[sec] = sections[sec] || []; continue; }
     if (cur) { if (line.trim() && !line.trim().startsWith('<!--')) cur.raw.push(line.trim()); } else if (sec) sections[sec].push(line);
   }
-  for (const b of blocks) { b.rawText = b.raw.join(' '); b.text = cleanSpoken(b.rawText); b.words = countWords(b.text); }
+  for (const b of blocks) { b.rawText = b.raw.join(' '); b.text = cleanSpoken(b.rawText); b.words = countWords(b.text); b.tags = extractTags(b.rawText, countWords, cleanSpoken); }
   const claims = [];
   for (const [k, lines] of Object.entries(sections)) if (k.startsWith('claims')) for (const l of lines) {
     if (!l.trim().startsWith('|')) continue;
@@ -160,7 +169,7 @@ function checkScript(proj) {
     if (i && b.start > blocks[i - 1].end + 1e-9) I(`${f2(b.start - blocks[i - 1].end)} s visual-only beat before ${tag}`);
     const need = talk ? speechSec(b.text, wps) : Math.max(READ_MIN, READ_SEC_PER_WORD * b.words);
     const room = Math.floor(Math.max(0, win - (talk ? 0.3 : 0)) * (talk ? wps : 1 / READ_SEC_PER_WORD));
-    rows.push({i: i + 1, label: b.label, start: b.start, end: b.end, win, words: b.words, need, room});
+    rows.push({i: i + 1, label: b.label, start: b.start, end: b.end, win, words: b.words, need, room, emotion: b.tags.map((t) => t.tag || '?').join('>')});
     if (need > win) E(`${tag}: needs ~${f2(need)} s but the window is ${f2(win)} s (${b.words} words; about ${room} fit). Cut words or widen the window.`);
     else if (need > win - 0.3) W(`${tag}: needs ~${f2(need)} s of a ${f2(win)} s window, no breathing room`);
     if (talk && !report && win > 2 && need < 0.4 * win) I(`${tag}: speech fills only ${Math.round(100 * need / win)}% of the window (fine if it is a visual beat)`);
@@ -182,11 +191,102 @@ function checkScript(proj) {
     else if (c.status === 'placeholder') W(`claim "${c.claim}" is a PLACEHOLDER; it must be replaced or confirmed before the full render`);
     else if (!c.source) W(`claim "${c.claim}": no source noted`);
   }
+  // the structure: a script is that plan expressed in words
+  const struct = checkStructure(proj); struct.issues.forEach((x) => issues.push({level: x.level, msg: 'structure: ' + x.msg}));
+  const v2 = proj0.structure === 'yes' || !!struct.beats; const eLevel = v2 ? E : W;
+  if (struct.beats?.length) {
+    blocks.forEach((b, i) => {
+      const tag = `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`;
+      const beat = struct.beats.find((x) => b.start >= x.start - 0.02 && b.end <= x.end + 0.02);
+      if (!beat) E(`${tag}: crosses a beat boundary of STRUCTURE.md; every block must sit inside one beat`);
+      else if (talk && beat.emotion && b.tags[0]?.tag && b.tags[0].tag !== beat.emotion) W(`${tag}: delivered [${b.tags[0].tag}] but beat ${beat.n} asks for ${beat.emotion}`);
+    });
+    if (talk) for (const beat of struct.beats) if (beat.vo !== 'none' && !blocks.some((b) => b.start >= beat.start - 0.02 && b.end <= beat.end + 0.02)) (['hook', 'cta'].includes(beat.purpose) ? E : W)(`beat ${beat.n} (${beat.purpose}) has no script block; write its words or mark the beat "- vo: none"`);
+  }
+  // emotion: how each line is delivered. The same tag drives the voice, the narrator's face and which gestures fit.
+  if (talk) {
+    const known = vocabulary();
+    blocks.forEach((b, i) => {
+      const tag = `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`;
+      if (v2 && !b.tags.length) E(`${tag}: no emotion tag. Open the line with one, for example [curious] (${known.join(', ')})`);
+      else if (v2 && b.tags[0].at !== 0) E(`${tag}: the first tag comes after word ${b.tags[0].at}; the line must open with its emotion`);
+      if (b.tags.length > 2) E(`${tag}: ${b.tags.length} emotion tags in one block; at most 2 (the face changes once inside a line)`);
+      b.tags.forEach((t, k) => {
+        if (!t.tag) { eLevel(`${tag}: [${t.raw}] is not an emotion tag${suggest(t.raw) ? ` (did you mean [${suggest(t.raw)}]?)` : ''}. Known: ${known.join(', ')}`); return; }
+        const segWords = (b.tags[k + 1]?.at ?? b.words) - t.at;
+        if (b.tags.length > 1 && segWords / wps < 0.8) E(`${tag}: [${t.tag}] covers ${segWords} word(s), about ${f2(segWords / wps)} s; a face needs 0.8 s to show an emotion. Merge it into the neighbour.`);
+      });
+    });
+    const em = blocks.map((b) => b.tags.find((t) => t.tag)?.tag); const used = em.filter(Boolean);
+    if (used.length >= 4 && new Set(used).size === 1) W(`every block is [${used[0]}]; vary the delivery, a flat read loses the viewer`);
+    if (em[0] && emoEnergy(em[0]) < 0.5) W(`the hook is delivered [${em[0]}] (energy ${emoEnergy(em[0])}); a hook needs 0.5+: curious, surprised, excited, mad, warm`);
+    const le = em.at(-1); if (le && emoEnergy(le) < 0.4) W(`the last block is [${le}]; end on warm, excited, proud or neutral so the call to action lands`);
+    em.forEach((e, i) => { if (i && e && em[i - 1] && Math.abs(emoEnergy(e) - emoEnergy(em[i - 1])) > 0.7 && blocks[i].start - blocks[i - 1].end < 0.5) W(`block ${i + 1}: jumps from [${em[i - 1]}] to [${e}] with no pause; put a visual-only beat between them`); });
+  }
   if (talk && report) {
     if (report.segments.length === blocks.length) blocks.forEach((b, i) => { const s = report.segments[i]; if (s.end > b.end + 0.05) W(`block ${i + 1}: measured speech ends ${f2(s.end)} s, after its window end ${f2(b.end)} s (storyboard windows follow the audio)`); });
     else W(`measured audio has ${report.segments.length} segments, script has ${blocks.length} blocks`);
   }
   return {issues, rows, meta: {wps, dur, totalWords, totalNeed, talk, report: !!report}};
+}
+
+// ---------- structure (STRUCTURE.md): what the video is made of, before any word is written ----------
+const PURPOSES = ['hook', 'setup', 'problem', 'solution', 'demo', 'proof', 'story', 'twist', 'payoff', 'cta', 'outro'];
+const structFile = (proj) => P(proj, 'Storyboard', 'STRUCTURE.md');
+function parseStructure(text) {
+  const {data, body} = readFront(text); const beats = []; let cur = null;
+  for (const line of body.split('\n')) {
+    const h = line.match(/^##\s+Beat\s+(\d+)\s*(?:[—–:-]\s*(.*))?$/i);
+    if (h) { cur = {n: Number(h[1]), name: (h[2] || '').trim(), kv: []}; beats.push(cur); continue; }
+    if (/^##\s/.test(line)) { cur = null; continue; }
+    const b = cur && line.match(/^\s*-\s+([\w-]+):\s*(.*)$/); if (b) cur.kv.push([b[1].toLowerCase(), b[2].trim()]);
+  }
+  return {meta: data, beats};
+}
+const styleOf = (data) => (data.style && !['undecided', 'none', ''].includes(String(data.style)) ? resolveStyle(data.style) : null);
+const hashStructure = (proj) => (exists(structFile(proj)) ? sha(read(structFile(proj))) : '');
+/** The structure is the plan the script expresses: beats that tile the duration, one idea each, an emotion each, and where the picture comes from. */
+function checkStructure(proj) {
+  const issues = []; const E = (m) => issues.push({level: 'error', msg: m}), W = (m) => issues.push({level: 'warn', msg: m});
+  const data = loadProject(proj).data; const talk = narrated(data);
+  if (!exists(structFile(proj))) { if (data.structure === 'yes') E('Storyboard/STRUCTURE.md is missing (what the video is made of: beats, what each shows, the one idea per beat, the emotion)'); return {issues, beats: null}; }
+  const {meta, beats: raw} = parseStructure(read(structFile(proj)));
+  const sc = exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))) : null;
+  const dur = num(meta.duration) || num(data.target_duration); const st = styleOf(data);
+  if (!raw.length) { E('no "## Beat N — LABEL" sections found'); return {issues, beats: []}; }
+  if (num(meta.duration) && num(data.target_duration) && Math.abs(num(meta.duration) - num(data.target_duration)) > 1e-9) E(`duration ${meta.duration} differs from PROJECT.md ${data.target_duration}`);
+  const beats = []; let hooks = 0;
+  raw.forEach((b, i) => {
+    const tag = `Beat ${b.n}${b.name ? ' (' + b.name + ')' : ''}`; const get = (k) => b.kv.filter(([x]) => x === k).map(([, v]) => v);
+    if (b.n !== i + 1) E(`${tag}: beats must be numbered 1..N in order`);
+    const t = get('time')[0] && rangeOf(get('time')[0]); if (!t) { E(`${tag}: needs "- time: 0.0–3.0" in seconds`); return; }
+    const prev = beats.at(-1);
+    if (!prev && Math.abs(t.a) > 1e-9) E(`${tag}: the first beat must start at 0`);
+    if (prev && Math.abs(t.a - prev.end) > 1e-9) E(`${tag}: starts at ${f2(t.a)} but the previous beat ends at ${f2(prev.end)} (${t.a > prev.end ? 'gap' : 'overlap'})`);
+    if (t.b <= t.a) { E(`${tag}: end must be after start`); return; }
+    const purpose = (get('purpose')[0] || '').toLowerCase(); if (!PURPOSES.includes(purpose)) E(`${tag}: purpose must be one of ${PURPOSES.join(', ')}`);
+    if (purpose === 'hook') { hooks++; if (t.b - t.a > 4) E(`${tag}: a hook of ${f2(t.b - t.a)} s loses the viewer; keep it within 4 s (3 s is better)`); }
+    const shows = get('shows')[0] || ''; if (shows.length < 8 || /\bTODO\b/.test(shows)) E(`${tag}: "shows" must say what is on screen, concretely`);
+    const info = get('info')[0] || ''; const iw = countWords(info);
+    if (/\bTODO\b/.test(info) || iw < 3) E(`${tag}: "info" must state the ONE thing the viewer takes from this beat (3-16 words)`); else if (iw > 16) W(`${tag}: "info" has ${iw} words; more than one idea in a beat?`);
+    const source = (get('source')[0] || '').toLowerCase(); if (!['remotion', 'footage', 'remotion+footage'].includes(source)) E(`${tag}: source must be remotion, footage or remotion+footage`);
+    const foot = get('footage');
+    if (source.includes('footage')) {
+      if (!foot.length) E(`${tag}: source includes footage but there is no "- footage: file.mp4 12.0–15.0" (which file, which part)`);
+      for (const f of foot) { const m = f.match(/^(\S+)\s+(\d+(?:[.,]\d+)?)\s*[–—-]\s*(\d+(?:[.,]\d+)?)/); if (!m) { E(`${tag}: footage must look like: clip.mp4 12.0–15.0`); continue; } if (num(m[3]) - num(m[2]) < t.b - t.a - 1e-9) E(`${tag}: footage ${f} gives ${f2(num(m[3]) - num(m[2]))} s but the beat lasts ${f2(t.b - t.a)} s`); if (!exists(P(proj, 'Raw-Footage', m[1])) && !exists(P(proj, 'Asset', 'owner', m[1]))) W(`${tag}: ${m[1]} is not in Raw-Footage/ or Asset/owner/ yet`); }
+    }
+    let emo = null; const eraw = (get('emotion')[0] || '').trim();
+    if (talk) { if (!eraw) E(`${tag}: needs "- emotion: curious" (how it is delivered; ${vocabulary().join(', ')})`); else { emo = canonical(eraw); if (!emo) E(`${tag}: emotion "${eraw}" is not known${suggest(eraw) ? ` (did you mean ${suggest(eraw)}?)` : ''}. Known: ${vocabulary().join(', ')}`); } }
+    for (const x of claimTerms(info)) if (sc && !claimCovered(x, sc.claims)) W(`${tag}: "info" mentions "${x}", a number, offer or domain; give it a row under ## Claims before the script`);
+    beats.push({n: b.n, name: b.name, start: t.a, end: t.b, purpose, shows, info, source, emotion: emo, vo: (get('vo')[0] || 'yes').toLowerCase() === 'none' ? 'none' : 'yes'});
+  });
+  if (beats.length) {
+    if (hooks !== 1) E(`exactly one beat must be the hook (found ${hooks})`); else if (beats[0].purpose !== 'hook') E('the hook must be the first beat');
+    if (!['cta', 'outro', 'payoff'].includes(beats.at(-1).purpose)) E('the last beat must be cta, outro or payoff');
+    if (dur && Math.abs(beats.at(-1).end - dur) > 1e-9) E(`beats end at ${f2(beats.at(-1).end)} s but the duration is ${f2(dur)} s`);
+    if (st && dur) { const avg = dur / beats.length, [lo, hi] = st.shotSec; if (avg < lo * 0.7 || avg > hi * 1.3) W(`${beats.length} beats average ${f2(avg)} s; ${st.name} cuts every ${lo}-${hi} s`); }
+  }
+  return {issues, beats};
 }
 
 // ---------- measured voice ----------
@@ -267,6 +367,9 @@ function checkStoryboard(proj) {
   const {meta, frames} = parseStoryboard(read(file));
   const fps = num(meta.fps) || FPS; const dur = num(meta.duration) || num(proj0.target_duration);
   if (talk && String(proj0.character).toLowerCase() === 'undecided') E('the narrator character is undecided. Design it, show the user its sheet, then `set-character <proj> <id>` (or `none` for a voice-only video).');
+  const st = styleOf(proj0);
+  if (String(proj0.style) === 'undecided') E('the video style is undecided. Show the user 2-3 fitting styles (`project.mjs style --for "<brief>"`), then `set-style <proj> <name>`.');
+  else if (proj0.style && !st) E(`PROJECT.md style "${proj0.style}" is not a known style; run \`project.mjs style --list\``);
   if (fps !== 60 && !meta.fps_reason) E(`fps is ${fps}; the default is 60. Use 60, or set fps_reason with the user's words.`);
   if (!dur) E('storyboard front matter needs duration');
   if (meta.size && proj0.size && meta.size !== proj0.size) E(`size ${meta.size} differs from PROJECT.md ${proj0.size}`);
@@ -287,6 +390,14 @@ function checkStoryboard(proj) {
     const sf = Math.round(t.a * fps), ef = Math.round(t.b * fps);
     const p = {id: fr.n, name: fr.name, start: t.a, end: t.b, startFrame: sf, endFrame: ef, durationFrames: ef - sf, clipFrames: ef - sf + 2 * (fps / 2), vo: [], zoom: [], cursor: [], narrator: [], text: [], sfx: []};
     plan.push(p);
+    const tr = get('transition')[0]; const dflt = i === 0 ? {kind: 'none', sec: 0} : st ? {kind: st.transition.kind, sec: st.transition.sec} : {kind: 'fade', sec: 0.5};
+    p.transition = dflt;
+    if (tr) {
+      const m = tr.match(/^(cut|fade|slide|wipe)(?:\s+(\d+(?:[.,]\d+)?))?$/i);
+      if (!m) E(`${tag}: transition must look like: cut | fade 0.5 | slide 0.4 | wipe 0.5`);
+      else if (i === 0) W(`${tag}: the first frame has nothing to transition from; the "transition" line is ignored`);
+      else { const kind = m[1].toLowerCase(); const sec = kind === 'cut' ? 0 : m[2] ? num(m[2]) : st?.transition.kind === kind ? st.transition.sec : 0.4; if (sec > 0.5 + 1e-9) E(`${tag}: transition ${kind} ${sec} s is longer than the 0.5 s of overlap the clip handles give`); else p.transition = {kind, sec}; }
+    }
     const inside = (x, y, what) => { if (x < t.a - 1e-9 || y > t.b + 1e-9) { E(`${tag}: ${what} ${f2(x)}–${f2(y)} is outside the frame ${f2(t.a)}–${f2(t.b)}`); return false; } return true; };
     for (const k of ['scene', 'engine', 'asset', 'reads']) if (!get(k).length || !get(k)[0]) E(`${tag}: missing "- ${k}:"`);
     if (get('scene')[0] && get('scene')[0].length < 8) E(`${tag}: scene description is too short to build from`);
@@ -314,6 +425,7 @@ function checkStoryboard(proj) {
       else if (e.hold < ZOOM_HOLD_SOFT) W(`${tag}: zoom "${target}" holds only ${f2(e.hold)} s; the viewer needs 0.5 s+ to read`);
       if (e.scale > ZOOM_SCALE_MAX) W(`${tag}: zoom "${target}" scale ${e.scale} > ${ZOOM_SCALE_MAX}; bitmaps look soft`);
       if (e.scale <= 1.05) W(`${tag}: zoom "${target}" scale ${e.scale} is barely visible`);
+      if (st && e.scale > st.zoomMax + 1e-9) W(`${tag}: zoom "${target}" scale ${e.scale} is above ${st.name}'s ${st.zoomMax}${st.zoomMax <= 1.05 ? ' (this style has no camera moves)' : ''}`);
     }
     for (const c of get('cursor')) {
       const m = c.match(/^(\S+)\s+@(\d+(?:[.,]\d+)?)\s*(click|hover|move)?/i);
@@ -333,6 +445,7 @@ function checkStoryboard(proj) {
       const m = x.match(/^(\w+)\s+@(\d+(?:[.,]\d+)?)(?:\s+gain=([\d.]+))?/);
       if (!m || !SFX_KINDS.includes(m[1].toLowerCase())) { E(`${tag}: sfx must look like: ${SFX_KINDS.join('|')} @1.20 [gain=0.6]`); continue; }
       const e = {frame: fr.n, kind: m[1].toLowerCase(), at: num(m[2]), gain: m[3] ? Number(m[3]) : 1, source: 'storyboard'};
+      if (st && !st.sfx.includes(e.kind)) W(`${tag}: ${st.name} does not use "${e.kind}" effects (it uses ${st.sfx.join(', ') || 'none'})`);
       if (inside(e.at, e.at, `sfx ${e.kind}`)) p.sfx.push(e);
     }
     if (get('sound').length && !get('sfx').length && !get('cursor').some((c) => /click/i.test(c))) W(`${tag}: "sound:" is only a note; no "- sfx: kind @time" line, so nothing will be produced for it`);
@@ -342,6 +455,8 @@ function checkStoryboard(proj) {
       const words = countWords(q[1]), need = Math.max(READ_MIN, READ_SEC_PER_WORD * words);
       if (!inside(r.a, r.b, 'text')) continue;
       if (r.b - r.a < need - 1e-9) E(`${tag}: "${q[1].slice(0, 30)}" is on screen ${f2(r.b - r.a)} s but needs ${f2(need)} s (${words} words x ${READ_SEC_PER_WORD} s, min ${READ_MIN} s)`);
+      if (st && words > st.maxWords) (words > 2 * st.maxWords ? E : W)(`${tag}: "${q[1].slice(0, 30)}" has ${words} words; ${st.name} keeps on-screen text to ${st.maxWords}`);
+      else if (st && r.b - r.a >= need - 1e-9 && r.b - r.a < need + st.holdMin - 1e-9) W(`${tag}: "${q[1].slice(0, 30)}" is held ${f2(r.b - r.a)} s; ${st.name} wants ${f2(need + st.holdMin)} s (reading time + ${st.holdMin} s)`);
       p.text.push({start: r.a, end: r.b, text: q[1], words});
     }
   });
@@ -350,6 +465,14 @@ function checkStoryboard(proj) {
   if (dur && Math.abs(total - dur) > 1e-9) E(`frames end at ${f2(total)} s but duration is ${f2(dur)} s`);
   const sum = plan.reduce((a, p) => a + p.durationFrames, 0); const want = Math.round(total * fps);
   if (sum !== want) E(`frame counts add up to ${sum} but the video has ${want} frames`);
+  if (st) { const avg = total / plan.length; const [lo, hi] = st.shotSec; if (avg < lo * 0.75 || avg > hi * 1.25) W(`frames average ${f2(avg)} s; ${st.name} cuts every ${lo}-${hi} s`); for (const p of plan) if (p.end - p.start > hi * 1.8) W(`Frame ${p.id} stays ${f2(p.end - p.start)} s; ${st.name} rarely holds one shot beyond ${hi} s`); }
+  const struct = checkStructure(proj);
+  if (struct.beats?.length) {
+    if (!talk) struct.issues.forEach((x) => issues.push({level: x.level, msg: 'structure: ' + x.msg}));
+    const edges = new Set(plan.flatMap((p) => [f2(p.start), f2(p.end)]));
+    for (const b of struct.beats) for (const x of [b.start, b.end]) if (!edges.has(f2(x))) E(`beat ${b.n} (${b.purpose}) ${x === b.start ? 'starts' : 'ends'} at ${f2(x)} s, inside a storyboard frame; a frame may split a beat but never straddle its boundary`);
+  }
+  let emotions = null;
 
   // voice: windows fit the words, and the words are exactly the approved script
   vos.sort((a, b) => a.start - b.start);
@@ -360,6 +483,18 @@ function checkStoryboard(proj) {
       const a = norm(vos.map((v) => v.text).join(' ')), b = norm(sc.blocks.map((x) => x.text).join(' '));
       let d = 0; while (d < a.length && d < b.length && a[d] === b[d]) d++;
       if (a.length !== b.length || d < a.length) E(`vo text differs from Storyboard/SCRIPT.md at word ${d + 1}: storyboard "${a.slice(d, d + 4).join(' ')}" vs script "${b.slice(d, d + 4).join(' ')}"`);
+      // the narrator's face over time: each [tag] becomes a segment starting just before its first spoken word
+      const sb = sc.blocks.filter((x) => x.text);
+      if (vos.length && sb.some((x) => x.tags.some((t) => t.tag))) {
+        let g = 0; const lines = vos.map((v) => { const o = {first: g, words: v.words}; g += v.words; return o; });
+        const seg = report && report.mapped && report.segments.length === vos.length ? report.segments : null;
+        const span = (k) => (seg ? {s: seg[k].start, e: seg[k].end} : {s: vos[k].start + 0.1, e: vos[k].end - 0.1});
+        const timeAt = (w) => { let k = lines.findIndex((l) => w >= l.first && w < l.first + l.words); if (k < 0) k = lines.length - 1; const sp = span(k); return sp.s + ((w - lines[k].first) / Math.max(1, lines[k].words)) * (sp.e - sp.s); };
+        const moments = []; let base = 0;
+        for (const x of sb) { for (const t of x.tags) if (t.tag) moments.push({at: timeAt(base + t.at), tag: t.tag}); base += x.words; }
+        emotions = emoTimeline(moments, span(lines.length - 1).e);
+        emotions.segments.forEach((x, k, all) => { if (k < all.length - 1 && x.end - x.start < 0.8 - 1e-9) E(`delivery [${x.tag}] lasts ${f2(x.end - x.start)} s (${f2(x.start)}–${f2(x.end)}); a face needs 0.8 s to show an emotion. Merge it with its neighbour in SCRIPT.md.`); });
+      }
     }
     if (report && report.mapped) {
       if (report.segments.length !== vos.length) E(`measured audio has ${report.segments.length} segments but the storyboard has ${vos.length} vo lines`);
@@ -399,24 +534,38 @@ function checkStoryboard(proj) {
   // narrator cues: one arm, one cue at a time
   cues.sort((a, b) => a.start - b.start);
   cues.forEach((c, k) => { for (let j = 0; j < k; j++) if (cues[j].arm === c.arm && cues[j].end > c.start + 1e-9) E(`narrator ${cues[j].kind} (${f2(cues[j].start)}–${f2(cues[j].end)}) and ${c.kind} (${f2(c.start)}–${f2(c.end)}) use the same arm (${c.arm}) at once`); });
+  if (emotions) for (const c of cues) { const mid = (c.start + c.end) / 2; const x = emotions.segments.find((q) => mid >= q.start && (q.end === null || mid < q.end)); if (x && !x.gestures.includes(c.kind)) W(`narrator ${c.kind} ${f2(c.start)}–${f2(c.end)} plays while the delivery is [${x.tag}] (${x.gestures.length ? 'it allows ' + x.gestures.join(', ') : 'it allows no gestures'}); change the cue or the tag`); }
+  if (cues.length) {
+    const per10 = cues.length / (total / 10); if (st && per10 > st.gestures + 1e-9) W(`${cues.length} narrator cues in ${f2(total)} s (${f2(per10)} per 10 s); ${st.name} uses at most ${st.gestures}`);
+    if (cues.reduce((a, c) => a + (c.end - c.start), 0) / total > 0.7) W('the narrator gestures more than 70% of the time; rest the arms between cues so each gesture means something');
+    for (const c of cues) if (c.end - c.start > 4.5) W(`narrator ${c.kind} ${f2(c.start)}–${f2(c.end)} holds one pose for ${f2(c.end - c.start)} s; split it or shorten it`);
+  }
   const sfx = [...plan.flatMap((p) => p.sfx), ...curs.filter((c) => c.action === 'click').map((c) => ({frame: c.frame, kind: 'click', at: +(c.at + CURSOR_DWELL).toFixed(3), gain: 1, source: 'cursor'}))].sort((a, b) => a.at - b.at);
-  return {issues, plan, sfx, meta: {fps, total, vos: vos.length, zooms: zooms.length, cursor: curs.length, cues: cues.length}};
+  const style = st && {id: st.id, name: st.name, category: st.category, build: st.build, palette: st.palette, transition: st.transition, ease: st.ease, stepFps: st.stepFps, zoomMax: st.zoomMax, shotSec: st.shotSec, maxWords: st.maxWords};
+  return {issues, plan, sfx, style, emotions, meta: {fps, total, vos: vos.length, zooms: zooms.length, cursor: curs.length, cues: cues.length}};
 }
 
 // ---------- gates ----------
 // The script hash covers timing and words only, so updating a claim's status or a note does not cancel the approvals.
-const hashScript = (proj) => (exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? sha(parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks.map((b) => `${b.start}-${b.end} ${b.text}`).join('\n')) : '');
-function hashStoryboard(proj, talk) {
+const hashScript = (proj) => {
+  if (!exists(P(proj, 'Storyboard', 'SCRIPT.md'))) return '';
+  const blocks = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks; const hs = hashStructure(proj);
+  // The delivery (emotion tags) and the structure are part of what the user approves; a script without either hashes exactly as before.
+  return sha(blocks.map((b) => `${b.start}-${b.end}${b.tags.length ? ' ' + b.tags.map((t) => `${t.tag || t.raw}@${t.at}`).join(',') : ''} ${b.text}`).join('\n') + (hs ? '\n#structure ' + hs : ''));
+};
+function hashStoryboard(proj, data) {
   if (!exists(P(proj, 'Storyboard', 'STORYBOARD.md'))) return '';
-  return sha(read(P(proj, 'Storyboard', 'STORYBOARD.md')) + (talk ? '\n#script ' + hashScript(proj) : ''));
+  const hs = hashStructure(proj);
+  // The style is part of what the user approved: changing it cancels the storyboard approval (and the sample and final after it).
+  return sha(read(P(proj, 'Storyboard', 'STORYBOARD.md')) + (narrated(data) ? '\n#script ' + hashScript(proj) : hs ? '\n#structure ' + hs : '') + (data.style && data.style !== 'undecided' ? '\n#style ' + data.style : ''));
 }
-function currentHash(proj, gate, data) { return gate === 'script' ? hashScript(proj) : hashStoryboard(proj, narrated(data)); }
+function currentHash(proj, gate, data) { return gate === 'script' ? hashScript(proj) : hashStoryboard(proj, data); }
 function accState(proj, gate, data) {
   const a = data.acc?.[gate]; if (!a || !a.status || a.status === 'none') return 'none';
-  const cur = gate === 'script' ? hashScript(proj) : hashStoryboard(proj, narrated(data));
+  const cur = currentHash(proj, gate, data);
   if (a.status === 'waiting') return a.hash === cur ? 'waiting' : 'stale';
   if (a.status === 'approved') {
-    if (gate === 'sample' || gate === 'final') return a.hash === hashStoryboard(proj, narrated(data)) && accState(proj, 'storyboard', data) === 'approved' ? 'approved' : 'stale';
+    if (gate === 'sample' || gate === 'final') return a.hash === hashStoryboard(proj, data) && accState(proj, 'storyboard', data) === 'approved' ? 'approved' : 'stale';
     return a.hash === cur ? 'approved' : 'stale';
   }
   return a.status;
@@ -430,7 +579,7 @@ function gate(proj, action) {
   if (['build', 'sample', 'full', 'deliver'].includes(action)) { if (talk) need('script', 'Gate 1 (script)'); need('storyboard', 'Gate 2 (storyboard)'); }
   if (['sample', 'full'].includes(action)) {
     const f = P(proj, 'Storyboard', 'plan.json');
-    if (!exists(f)) why.push('Storyboard/plan.json is missing; run `check storyboard`'); else if (JSON.parse(read(f)).hash !== hashStoryboard(proj, talk)) why.push('Storyboard/plan.json is out of date; run `check storyboard`');
+    if (!exists(f)) why.push('Storyboard/plan.json is missing; run `check storyboard`'); else if (JSON.parse(read(f)).hash !== hashStoryboard(proj, data)) why.push('Storyboard/plan.json is out of date; run `check storyboard`');
   }
   if (['full', 'deliver'].includes(action)) { need('sample', 'Gate 3 (sample)'); if (!hasMp4(P(proj, 'Result', 'sample'))) why.push('Result/sample has no video'); }
   if (action === 'full') { const ph = placeholders(proj); if (ph.length) why.push(`placeholder claims remain: ${ph.map((c) => '"' + c.claim + '"').join(', ')}. Replace them or get them confirmed, then update ## Claims.`); }
@@ -447,8 +596,8 @@ function printIssues(issues) {
   return e;
 }
 function printScriptTable(r) {
-  out('  #  window            win(s)  words  need(s)  max words');
-  for (const x of r.rows) out(`  ${String(x.i).padStart(1)}  ${f2(x.start).padStart(5)}–${f2(x.end).padEnd(6)}   ${f2(x.win).padStart(5)}  ${String(x.words).padStart(5)}  ${f2(x.need).padStart(7)}  ${String(x.room).padStart(8)}  ${x.need > x.win ? '<- too long' : ''}`);
+  out('  #  window            win(s)  words  need(s)  max words  emotion');
+  for (const x of r.rows) out(`  ${String(x.i).padStart(1)}  ${f2(x.start).padStart(5)}–${f2(x.end).padEnd(6)}   ${f2(x.win).padStart(5)}  ${String(x.words).padStart(5)}  ${f2(x.need).padStart(7)}  ${String(x.room).padStart(8)}  ${(x.emotion || '-').padEnd(14)}${x.need > x.win ? '<- too long' : ''}`);
   if (r.meta) out(`  total ${r.meta.totalWords} words, ~${f2(r.meta.totalNeed)} s of ${r.meta.dur ? f2(r.meta.dur) : '?'} s at ${r.meta.wps} words/s${r.meta.report ? '' : ' (estimate until the audio is measured)'}`);
 }
 function printPlan(plan) {
@@ -457,7 +606,22 @@ function printPlan(plan) {
 }
 
 function writePlan(proj, r, data) {
-  fs.writeFileSync(P(proj, 'Storyboard', 'plan.json'), JSON.stringify({fps: r.meta.fps, size: data.size, totalSec: r.meta.total, totalFrames: Math.round(r.meta.total * r.meta.fps), hash: hashStoryboard(proj, narrated(data)), sfx: r.sfx, frames: r.plan}, null, 1) + '\n');
+  fs.writeFileSync(P(proj, 'Storyboard', 'plan.json'), JSON.stringify({fps: r.meta.fps, size: data.size, totalSec: r.meta.total, totalFrames: Math.round(r.meta.total * r.meta.fps), hash: hashStoryboard(proj, data), style: r.style, emotions: r.emotions, sfx: r.sfx, frames: r.plan}, null, 1) + '\n');
+}
+
+/** Asset/agen/vo.txt (clean words, one line per block) and vo-lines.json (every engine's version of each line, from the emotion tags). `engine` also writes lines/lineN.txt. */
+function writeVoLines(proj, engine) {
+  const blocks = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md'))).blocks.filter((b) => b.text); const dir = P(proj, 'Asset', 'agen'); fs.mkdirSync(dir, {recursive: true});
+  const dflt = loadEmotions().default;
+  const lines = blocks.map((b, i) => {
+    const tags = b.tags.filter((t) => t.tag); const tag = tags[0]?.tag || dflt;
+    return {n: i + 1, label: b.label, start: b.start, end: b.end, emotion: tag, emotions: tags.map((t) => ({tag: t.tag, afterWord: t.at})), text: b.text,
+      engines: {plain: renderLine(b.rawText, 'plain'), edge: {text: renderLine(b.rawText, 'edge'), ...edgeArgs(tag)}, elevenlabs: renderLine(b.rawText, 'elevenlabs'), chatterbox: renderLine(b.rawText, 'chatterbox'), voicestudio: renderLine(b.rawText, 'voicestudio')}};
+  });
+  fs.writeFileSync(P(dir, 'vo.txt'), blocks.map((b) => b.text).join('\n') + '\n');
+  fs.writeFileSync(P(dir, 'vo-lines.json'), JSON.stringify({note: 'One entry per script block. Edge TTS has no emotion tags: use engines.edge (rate/pitch/volume). elevenlabs keeps v3-style audio tags; chatterbox (VoiceBox Turbo) keeps only [laugh]/[gasp] and is English only.', lines}, null, 1) + '\n');
+  if (engine) { const d = P(dir, 'lines'); fs.mkdirSync(d, {recursive: true}); lines.forEach((l) => fs.writeFileSync(P(d, `line${l.n}.txt`), (engine === 'elevenlabs' ? l.engines.elevenlabs : engine === 'chatterbox' ? l.engines.chatterbox : engine === 'voicestudio' ? l.engines.voicestudio : l.engines.plain) + '\n')); }
+  return lines;
 }
 
 function printVoice(proj, audio, minGap, pre) {
@@ -479,17 +643,20 @@ const COMMANDS = {
     const character = String(opt.character === undefined || opt.character === true ? (narration === 'yes' ? 'undecided' : 'none') : opt.character).toLowerCase();
     if (!/^(none|undecided|[a-z][a-z0-9-]*)$/.test(character)) die('--character: a character id (lowercase letters, digits, dashes), none (voice only) or undecided', 2);
     if (!['motion', 'footage'].includes(type) || !SIZES[format] || !['yes', 'no'].includes(narration)) die('--type motion|footage, --format landscape|portrait|square, --narration yes|no', 2);
+    const sty = opt.style && opt.style !== true ? resolveStyle(opt.style) : null;
+    if (opt.style && !sty) die(`unknown style "${opt.style}". \`project.mjs style --list\` shows the 36 styles and their aliases.`, 2);
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, ''); const proj = path.join(rootDir(opt), brand, `${date}-${slug}`);
     if (exists(proj)) die(`already exists: ${proj}`);
     for (const d of ['Reference', 'Storyboard', 'Asset/owner', 'Asset/agen', 'Asset/scenes', 'Source/remotion', 'Source/hyperframes', 'Result', ...(type === 'footage' ? ['Raw-Footage'] : [])]) fs.mkdirSync(P(proj, d), {recursive: true});
     const dur = num(opt.duration) || 30; const sub = (s) => s.replace(/{{brand}}/g, brand).replace(/{{slug}}/g, slug).replace(/{{duration}}/g, dur).replace(/{{narration}}/g, narration).replace(/{{size}}/g, SIZES[format]).replace(/{{wps}}/g, DEFAULT_WPS);
     const put = (from, to) => fs.writeFileSync(P(proj, to), sub(read(path.join(TPL, from))));
-    put('SCRIPT.md', 'Storyboard/SCRIPT.md'); put('STORYBOARD.md', 'Storyboard/STORYBOARD.md'); put('REFERENCES.md', 'Reference/REFERENCES.md'); put('ANALYSIS.md', 'Reference/_TEMPLATE.analysis.md'); put('ASSETS.md', 'Asset/ASSETS.md'); if (type === 'footage') put('SOURCES.md', 'Raw-Footage/SOURCES.md');
+    put('STRUCTURE.md', 'Storyboard/STRUCTURE.md'); put('SCRIPT.md', 'Storyboard/SCRIPT.md'); put('STORYBOARD.md', 'Storyboard/STORYBOARD.md'); put('REFERENCES.md', 'Reference/REFERENCES.md'); put('ANALYSIS.md', 'Reference/_TEMPLATE.analysis.md'); put('ASSETS.md', 'Asset/ASSETS.md'); if (type === 'footage') put('SOURCES.md', 'Raw-Footage/SOURCES.md');
     const g = () => ({status: 'none', at: '', evidence: '', hash: ''});
-    const data = {project: slug, brand, title: slug, type, format, size: SIZES[format], fps: FPS, target_duration: dur, created: now(), stage: 'new', narration, voice: opt.voice || (narration === 'yes' ? 'undecided' : 'none'), character, acc: {script: g(), storyboard: g(), sample: g(), final: g()}};
+    const data = {project: slug, brand, title: slug, type, format, size: SIZES[format], fps: FPS, target_duration: dur, created: now(), stage: 'new', narration, voice: opt.voice || (narration === 'yes' ? 'undecided' : 'none'), character, style: sty ? sty.id : 'undecided', language: opt.language && opt.language !== true ? opt.language : 'id-ID', structure: 'yes', acc: {script: g(), storyboard: g(), sample: g(), final: g()}};
     const body = `# ${slug}\n\n## Brief (the user's own words, do not paraphrase)\n> ${String(opt.brief).replace(/\n/g, '\n> ')}\n\n## Goal, audience, CTA\n-\n\n## Final decisions (do not reopen on revisions)\n-\n\n## History\n- ${now()} — project created (${type}, ${format} ${SIZES[format]}, ${dur}s, ${FPS} fps, narration ${narration})\n`;
     saveProject(proj, data, body);
-    out(`created ${proj}\nnext: ${narration === 'yes' ? 'write Storyboard/SCRIPT.md, then `check script`, `submit script`, and STOP for the user' : 'analyse references, then write Storyboard/STORYBOARD.md'}`);
+    if (sty) fs.writeFileSync(P(proj, 'Storyboard', 'style.json'), JSON.stringify(sty, null, 1) + '\n');
+    out(`created ${proj}\nstyle: ${sty ? sty.name : 'undecided (project.mjs style --for "<brief>", then set-style)'}\nnext: write Storyboard/STRUCTURE.md (the beats), ${narration === 'yes' ? 'then SCRIPT.md, `check script`, `submit script`, and STOP for the user (Gate 1 = structure + script)' : 'then STORYBOARD.md'}`);
   },
   status(pos, opt) {
     const list = [];
@@ -497,11 +664,12 @@ const COMMANDS = {
     if (!list.length) out(`no projects under ${rootDir(opt)}`);
     for (const proj of list) {
       const {data} = loadProject(proj); const talk = narrated(data);
-      const rel = path.relative(process.cwd(), proj); out(`${rel && !rel.startsWith('..') ? rel : proj}\n  ${data.type} ${data.format} ${data.size} ${data.fps} fps ${data.target_duration}s  narration=${data.narration}  character=${data.character}  voice=${data.voice}`);
+      const rel = path.relative(process.cwd(), proj); out(`${rel && !rel.startsWith('..') ? rel : proj}\n  ${data.type} ${data.format} ${data.size} ${data.fps} fps ${data.target_duration}s  narration=${data.narration}  character=${data.character}  voice=${data.voice}${data.style ? `  style=${data.style}` : ''}`);
       const gates = [...(talk ? ['script'] : []), 'storyboard', 'sample', 'final'];
       for (const g of gates) out(`  gate ${g.padEnd(10)} ${accState(proj, g, data)}${data.acc?.[g]?.evidence ? `   "${String(data.acc[g].evidence).slice(0, 60)}"` : ''}`);
       const st = Object.fromEntries(gates.map((g) => [g, accState(proj, g, data)])); const nx = [];
-      if (talk && st.script !== 'approved') nx.push(st.script === 'waiting' ? 'ask the user to approve the script' : 'write/fix SCRIPT.md: check script, submit script');
+      if (String(data.style) === 'undecided') nx.push('choose the video style: `style --for "<brief>"`, show 2-3 fits, then `set-style` (it sets the rhythm the structure is written for)');
+      else if (talk && st.script !== 'approved') nx.push(st.script === 'waiting' ? 'ask the user to approve the structure and the script' : 'write/fix STRUCTURE.md then SCRIPT.md: check script, submit script');
       else if (talk && String(data.character).toLowerCase() === 'undecided') nx.push('design the narrator character: scaffold --preview, npm run character -- <id>, show the sheet, set-character (or none for voice only)');
       else if (talk && !loadVoReport(proj)) nx.push('produce the voice, then `vo <project> <audio>`');
       else if (st.storyboard !== 'approved') nx.push(st.storyboard === 'waiting' ? 'ask the user to approve the storyboard' : 'write/fix STORYBOARD.md: check storyboard, submit storyboard');
@@ -532,7 +700,7 @@ const COMMANDS = {
     if (opt.estimate && opt.estimate !== true) logLine(proj, `storyboard submitted on ESTIMATED voice timing: ${opt.estimate}`);
     const f = P(proj, 'Storyboard', what === 'script' ? 'SCRIPT.md' : 'STORYBOARD.md'); const ts = now().replace(/[-:]/g, '').slice(0, 13).replace('T', '-');
     fs.copyFileSync(f, f.replace(/\.md$/, `.submitted-${ts}.md`));
-    if (what === 'script') fs.writeFileSync(P(proj, 'Asset', 'agen', 'vo.txt'), parseScript(read(f)).blocks.map((b) => b.text).join('\n') + '\n');
+    if (what === 'script') writeVoLines(proj);
     if (what === 'storyboard') writePlan(proj, r, data);
     const fresh = loadProject(proj); fresh.data.acc[what] = {status: 'waiting', at: now(), evidence: '', hash: currentHash(proj, what, fresh.data)}; fresh.data.stage = `acc-${what}`; saveProject(proj, fresh.data, fresh.body);
     logLine(proj, `${what} submitted (hash ${fresh.data.acc[what].hash}), waiting for the user`);
@@ -545,7 +713,7 @@ const COMMANDS = {
     const s = accState(proj, what, data);
     if (what === 'script' || what === 'storyboard') { if (s !== 'waiting') die(`cannot approve ${what}: state is ${s}. ${s === 'stale' ? 'The file changed after submit; check and submit again.' : 'Submit it first.'}`); }
     else { const why = gate(proj, what === 'sample' ? 'build' : 'sample'); if (what === 'sample' && !hasMp4(P(proj, 'Result', 'sample'))) why.push('Result/sample has no video'); if (what === 'final' && (accState(proj, 'sample', data) !== 'approved' || !fs.readdirSync(P(proj, 'Result')).some((d) => /^v\d+$/.test(d) && hasMp4(P(proj, 'Result', d))))) why.push('needs an approved sample and a full render in Result/vN'); if (why.length) die(`cannot approve ${what}: ${why.join('; ')}`); }
-    data.acc[what] = {status: 'approved', at: now(), evidence: ev, hash: what === 'sample' || what === 'final' ? hashStoryboard(proj, narrated(data)) : currentHash(proj, what, data)};
+    data.acc[what] = {status: 'approved', at: now(), evidence: ev, hash: what === 'sample' || what === 'final' ? hashStoryboard(proj, data) : currentHash(proj, what, data)};
     data.stage = `${what}-approved`; saveProject(proj, data, body); logLine(proj, `${what} APPROVED by the user: "${ev}"`); out(`approved ${what}`);
   },
   gate(pos, opt) {
@@ -602,6 +770,66 @@ const COMMANDS = {
     fs.writeFileSync(P(dir, 'vo-report.json'), JSON.stringify(report, null, 1) + '\n');
     printVoice(proj, outFile, 0, {report, script: blocks});
   },
+  intake(pos, opt) {
+    const brief = pos.join(' ').trim(); if (!brief) die('usage: intake "<the user\'s brief in their own words>" [--json]', 2);
+    const r = intakeBrief(brief);
+    if (opt.json) { out(JSON.stringify(r, null, 1)); return; }
+    out('KNOWN from the brief:'); (r.known.length ? r.known : [{field: '-', value: 'nothing explicit', from: ''}]).forEach((k) => out(`  ${String(k.field).padEnd(12)} ${k.value}   (${k.from})`));
+    out('\nASSUMED (state in one line, the user corrects at Gate 1; do not ask):'); r.assumed.forEach((a) => out(`  ${String(a.field).padEnd(12)} ${a.value}   (${a.why})`));
+    out(r.questions.length ? `\nASK (${r.questions.length} question(s), ONE batch, recommended answer first):` : '\nASK: nothing. Create the project and start the structure.');
+    r.questions.forEach((q, i) => { out(`  ${i + 1}. [${q.header}] ${q.question}`); q.options.forEach((o) => out(`       - ${o.label}: ${o.description}`)); });
+  },
+  style(pos, opt) {
+    const {styles} = loadStyles();
+    if (opt.for) { const rec = recommend(String(opt.for), {n: 3}); out(`styles for "${String(opt.for).slice(0, 70)}":`); rec.forEach((r, i) => out(`  ${i + 1}. ${r.style.name.padEnd(20)} ${r.style.category.padEnd(16)} ${r.style.about}${r.why.length ? `  [matches: ${r.why.join(', ')}]` : ''}`)); return; }
+    if (!pos[0] || opt.list) { for (const c of ['motion-3d', 'motion-graphics', 'video-editor']) { out(`${c}:`); Object.values(styles).filter((x) => x.category === c).forEach((x) => out(`  ${x.name.padEnd(20)} ${x.about}`)); } return; }
+    const x = resolveStyle(pos.join(' ')); if (!x) die(`unknown style "${pos.join(' ')}". Try \`style --list\`.`);
+    out(`${x.name} (${x.category}, built with ${x.build})\n  ${x.about}\n  look:    ${x.look}\n  motion:  ${x.motion}\n  camera:  ${x.camera}\n  audio:   ${x.audio}\n  avoid:   ${x.avoid.join('; ')}\n  palette: bg ${x.palette.bg}  text ${x.palette.fg}  accent ${x.palette.accent}  accent2 ${x.palette.accent2}  muted ${x.palette.muted}\n  rhythm:  a shot every ${x.shotSec[0]}-${x.shotSec[1]} s, transition ${x.transition.kind}${x.transition.sec ? ' ' + x.transition.sec + ' s' : ''}, zoom up to ${x.zoomMax}x, on-screen text up to ${x.maxWords} words, at most ${x.gestures} narrator gestures per 10 s${x.stepFps ? `, poses stepped at ${x.stepFps} fps` : ''}\n  ease:    enter ${x.ease.enter}, move ${x.ease.move}\n  sfx:     ${x.sfx.join(', ') || 'none'}${x.fit ? `\n  character: ${x.fit}` : ''}`);
+  },
+  'set-style'(pos, opt) {
+    const [p, ...n] = pos; const x = resolveStyle(n.join(' ')); if (!n.length || !x) die(n.length ? `unknown style "${n.join(' ')}". \`style --list\` shows them.` : 'usage: set-style <project> <name>', n.length ? 1 : 2);
+    const proj = findProject(p, opt); const {data, body} = loadProject(proj);
+    data.style = x.id; saveProject(proj, data, body); fs.writeFileSync(P(proj, 'Storyboard', 'style.json'), JSON.stringify(x, null, 1) + '\n');
+    logLine(proj, `style set to ${x.name}`); out(`style: ${x.name} (${x.category}, ${x.build})`);
+    if (x.build === 'footage-overlay' && data.type !== 'footage') out('  note: this style edits real footage; the project type is "motion". Add Raw-Footage/ and list the clips in STRUCTURE.md, or pick a motion style.');
+    if (x.fit && narrated(data)) out(`  character: ${x.fit}`);
+    if (['storyboard'].some((g) => accState(proj, g, data) === 'stale')) out('  the storyboard approval is now stale (the style is part of what was approved); check, submit and ask again.');
+  },
+  'vo-lines'(pos, opt) {
+    const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project');
+    if (!exists(P(proj, 'Storyboard', 'SCRIPT.md'))) die('Storyboard/SCRIPT.md is missing');
+    const eng = opt.engine && opt.engine !== true ? String(opt.engine).toLowerCase().replace('voicebox', 'chatterbox') : null;
+    if (eng && !ENGINES.includes(eng)) die(`engine must be one of ${ENGINES.join(', ')} (voicebox = chatterbox)`, 2);
+    const lines = writeVoLines(proj, eng);
+    out('  #  window           emotion     edge rate/pitch/volume   text');
+    lines.forEach((l) => out(`  ${String(l.n).padStart(1)}  ${f2(l.start).padStart(5)}–${f2(l.end).padEnd(6)}  ${l.emotion.padEnd(10)}  ${(l.engines.edge.rate + ' ' + l.engines.edge.pitch + ' ' + l.engines.edge.volume).padEnd(22)}   ${l.text.slice(0, 48)}`));
+    out(`\nwrote Asset/agen/vo-lines.json${eng ? ` and Asset/agen/lines/line1..${lines.length}.txt (${eng})` : ''}`);
+    out('Edge TTS (no emotion tags; the settings above carry the emotion), one file per line, for example:\n  edge-tts --voice id-ID-GadisNeural --rate=<rate> --pitch=<pitch> --volume=<volume> --text "<text>" --write-media Asset/agen/line1.mp3\nThen `vo-place <project> --fit --lufs -15`. The emotion tags drive the narrator\'s face and gestures either way.');
+  },
+  async 'voice-check'(pos, opt) {
+    const url = voiceUrl(opt); out('Voice routes on this machine (read-only; nothing is installed or started):');
+    const ff = spawnSync(ffbin('ffmpeg'), ['-version'], {encoding: 'utf8'}); const edge = spawnSync('edge-tts', ['--version'], {encoding: 'utf8'});
+    out(`  1. agent default: ${edge.status === 0 ? 'edge-tts is installed (id-ID voices, rate/pitch/volume from the emotion tag)' : 'edge-tts not found on PATH; use whatever speech tool this agent already has'}`);
+    let pr; try { pr = await probe(url); } catch (e) { pr = {up: false, error: e.message}; }
+    out(`  2. local speech server at ${url}: ${pr.up ? 'ANSWERS (vo-synth can use it; the script stays on this machine)' : `not reachable${pr.error ? ' (' + pr.error + ')' : ''}. Only the owner starts one; removid never does.`}`);
+    out('  3. the user\'s own audio: always possible. One file per line (Asset/agen/line1.*) then `vo-place`, or one recording then `vo`; `vo-lines` lists the lines to record.');
+    out(`  ffmpeg: ${ff.status === 0 ? 'found' : 'not found (needed to measure and place audio)'}`);
+  },
+  async 'vo-synth'(pos, opt) {
+    const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project');
+    const why = gate(proj, 'voice'); if (why.length) die('blocked: ' + why.join('; '));
+    const url = voiceUrl(opt); try { assertLocal(url); } catch (e) { die(e.message); }
+    const pr = await probe(url); if (!pr.up) die(`no speech server answers at ${url}. removid does not start one. Use the agent's default voice, or give your own audio files (Asset/agen/line1.* then \`vo-place\`).`);
+    const lines = writeVoLines(proj, 'voicestudio'); const dir = P(proj, 'Asset', 'agen');
+    for (const l of lines) {
+      const text = l.engines.voicestudio; if (!text) die(`line ${l.n} has no speakable text after the tags were translated`);
+      const wav = await synth(url, text, {voice: opt.voice && opt.voice !== true ? String(opt.voice) : 'alloy'}); const f = P(dir, `line${l.n}.wav`); fs.writeFileSync(f, wav);
+      const tempo = tempoFor(l.emotion);
+      if (Math.abs(tempo - 1) > 0.005) { const t = f.replace(/\.wav$/, '.tmp.wav'); const r = spawnSync(ffbin('ffmpeg'), ['-hide_banner', '-loglevel', 'error', '-y', '-i', f, '-filter:a', `atempo=${tempo.toFixed(3)}`, t], {encoding: 'utf8'}); if (r.status !== 0) die('ffmpeg atempo failed: ' + (r.stderr || '').split('\n').slice(-3).join(' ')); fs.renameSync(t, f); }
+      out(`  line ${l.n} [${l.emotion}] -> ${path.relative(proj, f)} (${wav.length} bytes, tempo ${tempo.toFixed(2)})`);
+    }
+    logLine(proj, `voice lines synthesized with a local speech server at ${url} (${lines.length} files in Asset/agen)`); out(`\n${lines.length} lines written. Next: \`vo-place ${path.basename(proj)} --fit --lufs -15\`.`);
+  },
   scaffold(pos, opt) {
     const proj = findProject(pos[0], opt); const dest = P(proj, 'Source', 'remotion'); fs.mkdirSync(dest, {recursive: true});
     const {data} = loadProject(proj); const has = exists(P(dest, 'package.json'));
@@ -615,6 +843,12 @@ const COMMANDS = {
       if (fs.readdirSync(dest).length) die(`${dest} is not empty and has no package.json`);
       const r = spawnSync('bash', [path.join(HERE, 'new-project.sh'), dest, '--no-install'], {encoding: 'utf8'}); process.stdout.write(r.stdout || ''); if (r.status !== 0) die(r.stderr || 'new-project.sh failed');
     }
+    // the chosen style and the emotion table become TypeScript modules the scenes import (colours, easing, rhythm; the face numbers)
+    if (exists(P(proj, 'Storyboard', 'style.json'))) {
+      const x = JSON.parse(read(P(proj, 'Storyboard', 'style.json'))); const tokens = {id: x.id, name: x.name, category: x.category, build: x.build, palette: x.palette, transition: x.transition, ease: x.ease, stepFps: x.stepFps, zoomMax: x.zoomMax, shotSec: x.shotSec, maxWords: x.maxWords};
+      fs.writeFileSync(P(dest, 'src', 'style.ts'), `// Generated by \`project.mjs scaffold\` from the project's style (${x.name}). Change the style with \`set-style\`, then scaffold again.\nimport type {StyleTokens} from './lib/style.ts';\n\nexport const STYLE: StyleTokens = ${JSON.stringify(tokens, null, 2)};\n`);
+    }
+    fs.writeFileSync(P(dest, 'src', 'emotions.ts'), emotionsTs());
     if (opt.preview) { logLine(proj, 'Remotion starter copied for character design only (scaffold --preview); no scenes are built before Gate 2'); out('\npreview only: npm install in Source/remotion, then `npm run character -- <id>` and show the sheet. Scenes wait for Gate 2.'); return; }
     if (exists(P(proj, 'Storyboard', 'plan.json'))) fs.copyFileSync(P(proj, 'Storyboard', 'plan.json'), P(dest, 'src', 'plan.json'));
     logLine(proj, has ? 'plan.json refreshed in Source/remotion/src' : 'Remotion starter scaffolded into Source/remotion (plan.json copied to src/plan.json)'); out(`\n${has ? 'plan.json refreshed' : 'run `npm install` in Source/remotion'}; compositions take their length from src/plan.json (frames[n].durationFrames).`);
@@ -651,7 +885,15 @@ const COMMANDS = {
     const total = plan.totalSec; const xf = (2 * handle) / fps;
     const vids = clips.map((c) => `      <video id="s${c.id}" class="clip" src="assets/scenes/${c.file}" data-start="${+(c.from / fps).toFixed(4)}" data-duration="${+((c.to - c.from) / fps).toFixed(4)}" data-media-start="0" data-track-index="${c.id - 1}" data-has-audio="false" muted></video>`).join('\n');
     const auds = audio.map((a) => `      <audio id="${a.id}" src="assets/audio/${a.file}" data-start="0" data-duration="${total}" data-track-index="${a.track}"></audio>`).join('\n');
-    const fades = clips.slice(1).map((c) => `      tl.fromTo("#s${c.id}", {opacity: 0}, {opacity: 1, duration: ${+xf.toFixed(4)}, ease: "power2.inOut"}, ${+(c.from / fps).toFixed(4)});`).join('\n');
+    // One transition per join, from the storyboard (or the style's default): fade, cut, slide or wipe, centred on the frame boundary.
+    const fades = clips.slice(1).map((c) => {
+      const f = plan.frames.find((x) => x.id === c.id); const tr = f.transition || {kind: 'fade', sec: xf}; const kind = tr.kind === 'none' ? 'fade' : tr.kind; const sec = Math.min(tr.sec ?? xf, xf);
+      const boundary = +(f.startFrame / fps).toFixed(4); const at = +(f.startFrame / fps - sec / 2).toFixed(4); const sel = `#s${c.id}`;
+      if (kind === 'cut' || sec === 0) return `      tl.set("${sel}", {opacity: 0}, 0);\n      tl.set("${sel}", {opacity: 1}, ${boundary});`;
+      if (kind === 'slide') return `      tl.fromTo("${sel}", {x: ${W}}, {x: 0, duration: ${+sec.toFixed(4)}, ease: "power3.inOut"}, ${at});`;
+      if (kind === 'wipe') return `      tl.fromTo("${sel}", {clipPath: "inset(0% 100% 0% 0%)"}, {clipPath: "inset(0% 0% 0% 0%)", duration: ${+sec.toFixed(4)}, ease: "power2.inOut"}, ${at});`;
+      return `      tl.fromTo("${sel}", {opacity: 0}, {opacity: 1, duration: ${+sec.toFixed(4)}, ease: "power2.inOut"}, ${at});`;
+    }).join('\n');
     const html = `<!doctype html>
 ${MARK}
 <html lang="en" data-resolution="${W >= H ? 'landscape' : 'portrait'}">
@@ -670,7 +912,7 @@ ${vids}
 ${auds}
     </div>
     <script>
-      // Generated from Storyboard/plan.json: each clip carries ${handle} frames of picture on both sides of its range, and the next clip fades in over the overlap.
+      // Generated from Storyboard/plan.json: each clip carries ${handle} frames of picture on both sides of its range; the join into each clip is the transition planned for it (fade, cut, slide or wipe).
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({paused: true});
 ${fades}
@@ -698,4 +940,4 @@ ${fades}
 const [cmd, ...rest] = process.argv.slice(2);
 if (!cmd || !COMMANDS[cmd]) die(`usage: project.mjs ${Object.keys(COMMANDS).join('|')} ...  (see the header of this file)`, 2);
 const {pos, opt} = parseArgs(rest);
-COMMANDS[cmd](pos, opt);
+Promise.resolve(COMMANDS[cmd](pos, opt)).catch((e) => die(String((e && e.message) || e)));

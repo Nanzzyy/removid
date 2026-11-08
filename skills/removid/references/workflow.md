@@ -1,22 +1,22 @@
 # Workflow: folder, script, storyboard, Remotion, HyperFrames
 
 ```
-ask -> project folder -> references -> SCRIPT (gate 1) -> voice measured -> STORYBOARD (gate 2)
-    -> Remotion scenes -> check + stills -> cursor proof -> clips (60 fps)
-    -> HyperFrames cut + assemble -> SAMPLE (gate 3) -> full render -> FINAL (gate 4) -> deliver
+intake -> project folder + style -> references -> STRUCTURE + SCRIPT with emotions (gate 1) -> voice made and measured
+    -> character (emotion sheet) -> STORYBOARD (gate 2) -> Remotion scenes -> check + stills -> cursor proof -> clips (60 fps)
+    -> HyperFrames cut + assemble (transitions per style) -> SAMPLE (gate 3) -> full render -> FINAL (gate 4) -> deliver
 ```
 
 Every arrow after the storyboard depends on numbers fixed before it. If a later step needs a different time, word or element than the plan says, that is a plan change: stop, edit the script or storyboard, submit again.
 
 `project.mjs` = `node <skill dir>/scripts/project.mjs`. Gates, hashes and the folder: `project-folder.md`.
 
-## 0. Ask
+## 0. Intake
 
-See `SKILL.md` "Ask first". Record the answers in PROJECT.md (fields and `## Final decisions`) so a later revision does not re-ask.
+`project.mjs intake "<the user's words>"` (`intake.md`): what the brief states, what is assumed, and at most four questions in one batch. Record the answers in PROJECT.md (fields and `## Final decisions`) so a later revision does not re-ask.
 
 ## 1. Project and brief
 
-`project.mjs new <Brand> <slug> --brief "<the user's own words>" --format landscape|portrait|square --duration N --narration yes|no [--voice ...] [--character claude|none|custom]`
+`project.mjs new <Brand> <slug> --brief "<the user's own words>" --format landscape|portrait|square --duration N --narration yes|no [--voice ...] [--character <id>|none] [--style <name>]`. The style (`styles.md`) is fixed now or right after (`set-style`); the storyboard cannot be submitted while it is `undecided`.
 
 | Field | Default |
 | --- | --- |
@@ -27,17 +27,17 @@ See `SKILL.md` "Ask first". Record the answers in PROJECT.md (fields and `## Fin
 
 Show real things (product screens, logo, imagery). Draw only what has no source. Put the user's files in `Asset/owner/`, list every asset in `Asset/ASSETS.md`. Analyse each reference (`project-folder.md`).
 
-## 2. Script (Gate 1 when narrated)
+## 2. Structure and script (Gate 1)
 
-Write `Storyboard/SCRIPT.md` (`script.md`). `check script` until clean, `submit script`, show the user the table (window, words, seconds needed, words that fit) and the warnings, stop. `approve script --evidence "<their words>"` only after their answer.
+Write `Storyboard/STRUCTURE.md` (`structure.md`: beats, what each shows, its one idea, its emotion, which footage), then `Storyboard/SCRIPT.md` (`script.md`) with an emotion tag opening every block. `check script` until clean (it checks both), `submit script`, show the user the table (window, words, seconds needed, words that fit, emotion) and the warnings, stop. `approve script --evidence "<their words>"` approves the structure and the script together. Silent videos have no Gate 1: the structure is checked with the storyboard.
 
-## 3. Voice
+## 3. Voice (after the script is approved)
 
-Narrated only. Recording or TTS from `Asset/agen/vo.txt`. One file per line: `project.mjs vo-place <proj>`; one recording: `project.mjs vo <proj> <audio>`. Either measures segments and the real pace into `Asset/agen/vo-report.json`. No audio yet and the user will record later: you may draft the storyboard, you may not submit it without `--estimate "<their reason>"`.
+Narrated only. `project.mjs vo-lines <proj> --engine <name>` writes the per-line text and voice settings from the emotion tags (`emotion-and-voice.md`). Recording or TTS, one file per line: `project.mjs vo-place <proj> --fit --lufs -15`; one recording: `project.mjs vo <proj> <audio>`. Either measures segments and the real pace into `Asset/agen/vo-report.json`. No audio yet and the user will record later: you may draft the storyboard, you may not submit it without `--estimate "<their reason>"`.
 
 ## 3b. Character (narrated, with a character)
 
-Design it before the storyboard (`character-and-narration.md`): `project.mjs scaffold <proj> --preview` copies the starter (nothing is built), `npm install` in `Source/remotion`, add the character to `src/characters/index.ts`, `npm run character -- <id>`, look at the sheet, show the user, revise, then `project.mjs set-character <proj> <id>` (or `none` for a voice-only video). The storyboard cannot be submitted while the character is `undecided`.
+Design it before the storyboard (`character-and-narration.md`): `project.mjs scaffold <proj> --preview` copies the starter (nothing is built), `npm install` in `Source/remotion`, add the character to `src/characters/index.ts`, `npm run character -- <id>` and `npm run character -- <id> --emotions` (all twelve faces), look at both sheets, show the user, revise, then `project.mjs set-character <proj> <id>` (or `none` for a voice-only video). The storyboard cannot be submitted while the character is `undecided`.
 
 ## 4. Storyboard (Gate 2)
 

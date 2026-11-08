@@ -5,6 +5,7 @@ import React, {useLayoutEffect, useRef} from 'react';
 import * as THREE from 'three';
 import {getCharacter} from '../characters/index.ts';
 import type {ArmModel, CharacterDef, Model} from '../characters/types.ts';
+import {applyFace} from '../lib/face.ts';
 import type {Point} from '../lib/geom.ts';
 import type {ArmPose, Pose} from '../lib/pose.ts';
 
@@ -107,9 +108,8 @@ function drawPose(rig: Rig, pose: Pose, width: number, height: number, origin: P
   m.root.rotation.y = dx * 0.38;
   m.root.rotation.x = dy * 0.06;
   m.eyes.position.set(rig.eyeBase.x + dx * 0.16, rig.eyeBase.y - dy * 0.1 + breathe * 0.01, rig.eyeBase.z);
-  for (const e of m.eyeMeshes) e.scale.y = Math.max(0.08, 1 - 0.92 * pose.blink);
-
-  m.setMouth(pose.talk, pose.smile);
+  // the delivery's face (eye openness, lean, brows, frown or smile) comes from the mood in the pose
+  applyFace(m, pose.mood, pose.blink, pose.talk);
   m.update?.(pose);
   applyArm(rig, 'L', m.arms.L, pose.armL, width, height, local);
   applyArm(rig, 'R', m.arms.R, pose.armR, width, height, local);

@@ -20,9 +20,10 @@ One "## Frame N — name" per shot, numbered 1..N, contiguous, global seconds. K
 - cursor: target @1.20 click            (arrival time; click happens 0.12 s later)
 - narrator: wave 0.05–1.60 | point 4.00–7.50 R at target | present 8.10–10.50
 - sfx: impact @0.00 gain=0.8             (click | tick | whoosh | impact | chime; cursor clicks add a click automatically)
+- transition: fade 0.5                   (into this frame: cut | fade | slide | wipe, up to 0.5 s; default = the style's)
 - reads: what the viewer takes from this frame
 - sound: music notes (free text, never produced; use sfx: for effects)
-After the last frame the video ends at `duration`. Run: project.mjs check storyboard <project>
+Every beat boundary of STRUCTURE.md must be a frame boundary. After the last frame the video ends at `duration`. Run: project.mjs check storyboard <project>
 -->
 
 ## Frame 1 — TODO name

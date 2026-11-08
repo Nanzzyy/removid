@@ -1,6 +1,6 @@
 # Narrator character and narration
 
-For any video that needs a spoken narrator. Ask first (SKILL.md "Ask first"): narration yes/no, a character yes/no, which voice. Without narration there is no character.
+For any video that needs a spoken narrator. The intake (`intake.md`) settles narration yes/no, a character yes/no and the voice. Without narration there is no character.
 
 ## What "a 3D character from Claude" means
 
@@ -24,14 +24,19 @@ Every character is a function that builds three.js meshes and returns a `Model` 
    "Cuter" is a direction the user may ask for: bigger eyes (`eyeScale` 1.3), rounder head (`headScale` 1), a softer lean and jaw, warm fur colours, blush. Keep the head level (a hunched body still looks ahead).
 3. **No archetype fits** (robot, animal, a specific style)? Write a builder `src/characters/<name>.ts` that returns a `Model` and register it. Required parts: `root` (front toward +Z, feet at y = 0), `headAnchor` on the face, `torso` (origin at its bottom), `eyes` + `eyeMeshes` (squashed to blink), `setMouth(open, smile)`, and two `arms` with a `pivot` at the shoulder, a `length` and `setReach(r, pointing)`. Use `frameCamera(height, centerY)` for the camera. Build only meshes (no canvas textures, no renderer) so the checks can run in Node.
 4. **Show it.** `npm run character -- <id>` renders `out/characters/<id>.png`: rest and speaking, wave, point. It FAILS when the character is clipped by its canvas, too small or too large, and prints where the feet land (set `groundY` accordingly). Look at the sheet. Show it to the user with one line on who it is and why, and revise colours, hair, outfit or proportions until they like it.
-5. **Record it:** `project.mjs set-character <proj> <id>` (or `none` for a voice-only video). The storyboard cannot be submitted while the character is `undecided`; narrator cues need a real character.
+5. **Show its range.** `npm run character -- <id> --emotions` renders `out/characters/<id>-emotions.png`: all twelve emotions of `styles/emotions.json` on this character, head and shoulders, drawn with the same camera, and FAILS when an emotion looks the same as neutral. Look at it: sad, mad, surprised and confused must read at a glance. `humanoid` has brows and a frown; `voxel` and `mascot` get eye slant, eye size, lean and smile from the rig. A new builder may implement the optional `setExpression(e)` (brows, frown, mouth shapes) to show more (`types.ts`); without it the rig still slants the eyes like brows.
+6. **Record it:** `project.mjs set-character <proj> <id>` (or `none` for a voice-only video). The storyboard cannot be submitted while the character is `undecided`; narrator cues need a real character.
 
 `npm run check` verifies every registered character without a browser: it builds, stands on y = 0, has both arms on the right sides with the declared length, the arm shortens when asked to, the face points forward, and it fits the camera with `groundY` where the feet really land.
 
+## Acting: the delivery drives the face
+
+The script's emotion tags become `plan.json` `emotions` (`emotion-and-voice.md`). In a scene: `narratorPose(t, talk, cues, look, moodAt(t, plan.emotions))`. The mood carries smile (frown to broad), brows, raised brows, eye openness, head lean and the speech-bounce gain, blended smoothly between tags. With a style that sets `stepFps` (pixel, clay, paper), feed the pose `stepTime(t, STYLE.stepFps)` and keep the voice envelope on real time. Gestures follow the delivery: no wave while `sad`; `check storyboard` warns. A gesture starts just before the word it illustrates and rests between: arms are not always moving.
+
 ## Pipeline
 
-1. **Script**: `Storyboard/SCRIPT.md`, approved at Gate 1 (`script.md`). Short sentences, one idea each.
-2. **Voice** audio file (user's recording, or TTS the user chose, from `Asset/agen/vo.txt`). Measure it with `project.mjs vo <proj> <audio>` (segments + real pace go to `Asset/agen/vo-report.json` and into the storyboard's `vo` windows). Copy it to `public/narration/<name>.mp3`.
+1. **Structure and script**: `Storyboard/STRUCTURE.md` and `SCRIPT.md`, approved together at Gate 1 (`structure.md`, `script.md`). Short sentences, one idea each, an emotion tag opening each block.
+2. **Voice** (after Gate 1) audio file (user's recording, or TTS the user chose, from `Asset/agen/vo.txt`). Measure it with `project.mjs vo <proj> <audio>` (segments + real pace go to `Asset/agen/vo-report.json` and into the storyboard's `vo` windows). Copy it to `public/narration/<name>.mp3`.
 3. **Envelope** (offline, never at render time):
    ```bash
    node scripts/make-envelope.mjs public/narration/<name>.mp3 --out public/narration/<name>.envelope.json

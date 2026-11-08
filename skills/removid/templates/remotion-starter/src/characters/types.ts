@@ -14,6 +14,20 @@ export type ArmModel = {
   setReach(r: number, pointing: boolean): void;
 };
 
+/** How the delivery looks on the face (from the script's emotion tag), blended smoothly by lib/emotion.ts. */
+export type Expression = {
+  /** -1 frown .. 1 broad smile. */
+  smile: number;
+  /** -1 inner brow ends up (sad) .. 1 inner ends down (angry). */
+  brow: number;
+  /** 0..1 brows lifted. */
+  raise: number;
+  /** Eye openness multiplier 0.8..1.3 (the rig already applies it to eyeMeshes; use it only for extra parts). */
+  eye: number;
+  /** Head lean in radians (the rig leans the whole figure by half of it). */
+  tilt: number;
+};
+
 export type Model = {
   /** Everything. The rig bounces it and turns it a little toward `pose.look`. Front of the character faces +Z, feet at y = 0. */
   root: THREE.Group;
@@ -26,6 +40,8 @@ export type Model = {
   eyeMeshes: THREE.Mesh[];
   /** open: 0 closed .. 1 wide (follows the voice envelope); smile: 0..1 resting smile. */
   setMouth(open: number, smile: number): void;
+  /** Optional. A character that can frown or move its brows implements this; one that cannot still gets the eye, lean and smile parts of the expression from the rig (smile is clamped to 0..1 for it). */
+  setExpression?(e: Expression): void;
   arms: Record<Side, ArmModel>;
   /** Optional extras every frame (hair sway, an antenna...). Must be a pure function of the pose. */
   update?(pose: import('../lib/pose.ts').Pose): void;

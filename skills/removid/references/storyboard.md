@@ -17,6 +17,7 @@ Front matter: `size`, `fps: 60`, `duration`, `message`, `arc`. Then one `## Fram
 - zoom: laporan-chart 18.40–20.90 scale=1.5   # window includes the ramps (in=0.8, out=0.7 by default)
 - narrator: point 4.00–6.50 R at headline     # wave | point | present, arm L|R
 - sfx: impact @0.00 gain=0.8             # click | tick | whoosh | impact | chime; every cursor click adds a click at click time
+- transition: slide 0.4                  # into this frame: cut | fade | slide | wipe, up to 0.5 s; default = the style's
 - reads: what the viewer takes from this frame
 - sound: music notes; free text, never produced (use sfx: for effects)
 ```
@@ -41,6 +42,11 @@ Front matter: `size`, `fps: 60`, `duration`, `message`, `arc`. Then one `## Fram
 | Cursor arrives ≥ 0.1 s after a zoom-in ends and clicks before a zoom-out starts, or happens entirely outside a zoom | never zoom while the cursor lands |
 | Sound effects: `sfx:` kinds are known, times fall inside the frame; a `sound:` note with no `sfx:` line is flagged because nothing would be produced | sound cues are part of the plan, not wishes |
 | Narrator cues: one arm at a time, `point` has a target, a narrator exists in PROJECT.md | the pose can be built |
+
+| Style (`styles.md`): decided; text words ≤ the style's (error at twice), held reading time + its `holdMin`; zoom ≤ its `zoomMax`; effect kinds it uses; frames average its `shotSec` | the video stays in one family |
+| Structure: every beat boundary of STRUCTURE.md is a frame boundary (a frame may split a beat, never straddle one) | the storyboard realises the approved structure |
+| Emotion: each tag becomes a face segment in `plan.json` (0.2 s before its first word, ≥ 0.8 s long); a narrator cue that contradicts the delivery (a wave while `sad`), more cues per 10 s than the style allows, a cue over 4.5 s, or gesturing over 70% of the time is a warning | face, voice and gestures say the same thing |
+| `transition:` is one of cut, fade, slide, wipe and at most 0.5 s (the overlap the clip handles give) | `assemble` can build it |
 
 Also: frames under 1 s, voice-less stretches over 4 s and zoom scale ≤ 1.05 are warnings to justify in `reads`.
 

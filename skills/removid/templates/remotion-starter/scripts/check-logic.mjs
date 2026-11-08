@@ -14,6 +14,10 @@ import * as THREE from 'three';
 import {CHARACTERS} from '../src/characters/index.ts';
 import {blinkAt, narratorPose, windowed} from '../src/lib/pose.ts';
 import {clipRange, exitAlpha, HANDLE_FRAMES, revealTimes} from '../src/lib/plan.ts';
+import {DEFAULT_MOOD, moodAt, segmentAt} from '../src/lib/emotion.ts';
+import {EASES, easeNamed} from '../src/lib/ease.ts';
+import {stepTime} from '../src/lib/style.ts';
+import {STYLE} from '../src/style.ts';
 
 let fails = 0;
 const ok = (m) => console.log(`  ok    ${m}`);
@@ -212,6 +216,58 @@ console.log('Plan helpers: clips, exit fade, voice-synced reveal');
   const r = revealTimes(['BISNISMU', 'SUDAH', 'PUNYA', 'WEBSITE', 'SENDIRI?'], 0.2, 2.2);
   const inOrder = r.every((x, i) => i === 0 || x > r[i - 1]);
   inOrder && Math.abs(r[0] - 0.32) < 1e-9 && r.at(-1) < 2.2 - 0.28 ? ok(`words appear in order inside the voice window (${r.map((x) => x.toFixed(2)).join(', ')})`) : fail(`revealTimes ${r.join(', ')}`);
+}
+
+console.log('Emotion: the face changes smoothly and fits every character');
+{
+  const CH = ['smile', 'brow', 'raise', 'eye', 'tilt', 'bounce'];
+  const segs = nar.MOODS.segments;
+  const range = Object.fromEntries(CH.map((c) => { const v = segs.map((x) => (c === 'bounce' ? x.body.bounce : x.face[c])); return [c, Math.max(...v) - Math.min(...v)]; }));
+  // 1. no pop: per frame no channel moves more than 10% of its range (smootherstep over 0.35 s peaks at 1.875/0.35/60 = 9%)
+  let worst = 0, worstAt = '';
+  for (let f = 1; f < nar.DURATION_SEC * FPS; f++) {
+    const a = moodAt((f - 1) / FPS, nar.MOODS), b = moodAt(f / FPS, nar.MOODS);
+    for (const c of CH) if (range[c] > 1e-9) { const d = Math.abs(b[c] - a[c]) / range[c]; if (d > worst) { worst = d; worstAt = `${c} at ${(f / FPS).toFixed(2)} s`; } }
+  }
+  worst <= 0.1 ? ok(`mood moves at most ${(worst * 100).toFixed(1)}% of a channel's range per frame (no pops)`) : fail(`mood jumps ${(worst * 100).toFixed(1)}% of a range in one frame (${worstAt})`);
+  // 2. eased at the edges: the first frame after a segment starts moves much less than the fastest frame
+  segs.slice(1).forEach((sg, i) => {
+    const t0 = sg.start; let peak = 0; for (let f = 0; f < 0.35 * FPS; f++) peak = Math.max(peak, Math.abs(moodAt(t0 + (f + 1) / FPS, nar.MOODS).smile - moodAt(t0 + f / FPS, nar.MOODS).smile));
+    const first = Math.abs(moodAt(t0 + 1 / FPS, nar.MOODS).smile - moodAt(t0, nar.MOODS).smile);
+    peak < 1e-9 || first <= 0.15 * peak ? ok(`transition into [${sg.tag}]: eased start (${peak < 1e-9 ? 'no smile change' : (first / peak * 100).toFixed(1) + '% of peak speed'})`) : fail(`transition into [${sg.tag}] starts at ${(first / peak * 100).toFixed(0)}% of its peak speed (stiff)`);
+    void i;
+  });
+  // 3. exact values inside a segment, the default without a plan, a pure function of time
+  const mid = moodAt(5.5, nar.MOODS); Math.abs(mid.smile - segs[1].face.smile) < 1e-9 && Math.abs(mid.bounce - segs[1].body.bounce) < 1e-9 ? ok('inside a segment the mood equals its numbers') : fail('mood inside a segment differs from the plan');
+  moodAt(2, null).smile === DEFAULT_MOOD.smile ? ok('no emotion plan: the old resting smile') : fail('default mood changed');
+  moodAt(5.55, nar.MOODS).smile === moodAt(5.55, nar.MOODS).smile && segmentAt(5.5, nar.MOODS)?.tag === 'curious' ? ok('mood and segment lookup are pure functions of time') : fail('segmentAt wrong');
+  // 4. the pose carries the mood: smile, and the speech bounce is scaled by the delivery
+  const calm = narratorPose(1, 0.9, [], null, {...DEFAULT_MOOD, bounce: 0.25}), lively = narratorPose(1, 0.9, [], null, {...DEFAULT_MOOD, bounce: 1.5});
+  calm.bounce < lively.bounce && narratorPose(1, 0, [], null, moodAt(5.5, nar.MOODS)).smile === mid.smile ? ok('pose smile and bounce follow the mood') : fail('pose ignores the mood');
+  // 5. every character takes the extreme faces without breaking: it stays the same size, nothing becomes NaN
+  const faces = [{smile: -1, brow: 1, raise: 0, eye: 0.8, tilt: -0.1}, {smile: 1, brow: -1, raise: 1, eye: 1.3, tilt: 0.12}, {smile: 0, brow: 0, raise: 0, eye: 1, tilt: 0}];
+  for (const def of Object.values(CHARACTERS)) {
+    const m = def.build(); m.root.updateMatrixWorld(true); const b0 = new THREE.Box3().setFromObject(m.root); const sz0 = b0.getSize(new THREE.Vector3());
+    let bad = '';
+    for (const f of faces) { m.setExpression?.(f); m.setMouth(0, m.setExpression ? f.smile : Math.max(0, f.smile)); m.setMouth(0.8, m.setExpression ? f.smile : Math.max(0, f.smile)); }
+    m.root.updateMatrixWorld(true); const b1 = new THREE.Box3().setFromObject(m.root); const sz1 = b1.getSize(new THREE.Vector3());
+    if (![sz1.x, sz1.y, sz1.z].every(Number.isFinite)) bad = 'size is NaN';
+    else if (Math.abs(sz1.y - sz0.y) > 0.25 || Math.abs(sz1.x - sz0.x) > 0.5) bad = `size changed ${sz0.x.toFixed(2)}x${sz0.y.toFixed(2)} -> ${sz1.x.toFixed(2)}x${sz1.y.toFixed(2)}`;
+    bad ? fail(`${def.id}: extreme faces break the figure (${bad})`) : ok(`${def.id}: frown, wide smile and raised brows keep the figure intact${m.setExpression ? ' (brows + frown)' : ' (eyes + lean + smile only)'}`);
+  }
+}
+
+console.log('Style: tokens and easing');
+{
+  for (const [k, name] of Object.entries(STYLE.ease)) {
+    const f = EASES[name];
+    if (!f) { fail(`style ease.${k} "${name}" is not a known easing (${Object.keys(EASES).join(', ')})`); continue; }
+    let mono = true, prev = 0; for (let i = 1; i <= 100; i++) { const y = easeNamed(name, i / 100); if (name !== 'outBack' && y < prev - 1e-9) mono = false; prev = y; }
+    Math.abs(easeNamed(name, 0)) < 1e-9 && Math.abs(easeNamed(name, 1) - 1) < 1e-9 && mono ? ok(`ease.${k} = ${name}: starts at 0, ends at 1${name === 'outBack' ? ' (overshoots on purpose)' : ', never goes backwards'}`) : fail(`ease.${k} = ${name} is not a clean 0..1 curve`);
+  }
+  /^#[0-9a-f]{6}$/i.test(STYLE.palette.bg) && /^#[0-9a-f]{6}$/i.test(STYLE.palette.fg) ? ok(`palette has hex colours (${STYLE.name})`) : fail('palette colours must be #rrggbb');
+  stepTime(0.234, 10) === 0.2 && stepTime(0.234, 0) === 0.234 && stepTime(0.3, 10) === 0.3 ? ok('stepTime holds a pose between steps and passes time through at 0 fps') : fail(`stepTime(0.234,10)=${stepTime(0.234, 10)}`);
+  STYLE.transition.sec <= 0.5 ? ok(`transition ${STYLE.transition.kind} ${STYLE.transition.sec} s fits the 0.5 s of clip overlap`) : fail('transition longer than the clip handles allow');
 }
 
 console.log(fails ? `\n${fails} FAIL` : '\nALL OK');

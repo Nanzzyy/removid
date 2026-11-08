@@ -1,5 +1,6 @@
 // Single source of truth for the Narrator scene.
 import type {ZoomShot} from '../lib/camera.ts';
+import type {EmotionPlan} from '../lib/emotion.ts';
 import type {Cue} from '../lib/pose.ts';
 
 export const DURATION_SEC = 11;
@@ -28,3 +29,16 @@ export const CAPTIONS = [
   {start: 4.2, end: 7.4, text: 'Lihat kartu ini: fokusnya selalu jelas.'},
   {start: 8.0, end: 10.3, text: 'Zoom halus, tanpa kaku.'},
 ];
+
+/**
+ * The delivery over time, in the shape `project.mjs check storyboard` writes to plan.json ("emotions"): one segment per emotion tag of the
+ * script with absolute face/body numbers. A real scene reads them from plan.json; this sample inlines three (values of warm, curious, excited).
+ */
+export const MOODS: EmotionPlan = {
+  transitionSec: 0.35,
+  segments: [
+    {tag: 'warm', start: 0, end: 3.8, energy: 0.5, face: {smile: 0.9, brow: -0.1, raise: 0.1, eye: 1.05, tilt: 0.03}, body: {bounce: 1.0}},
+    {tag: 'curious', start: 3.8, end: 7.9, energy: 0.55, face: {smile: 0.4, brow: -0.15, raise: 0.6, eye: 1.12, tilt: 0.08}, body: {bounce: 0.9}},
+    {tag: 'excited', start: 7.9, end: null, energy: 1.0, face: {smile: 1.0, brow: -0.1, raise: 0.5, eye: 1.15, tilt: 0.04}, body: {bounce: 1.5}},
+  ],
+};

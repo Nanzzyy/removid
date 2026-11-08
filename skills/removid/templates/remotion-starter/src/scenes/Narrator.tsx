@@ -4,10 +4,11 @@ import {Camera} from '../components/Camera.tsx';
 import {NarratorLayer, useEnvelope} from '../components/NarratorLayer.tsx';
 import {Spotlight} from '../components/Spotlight.tsx';
 import {camAt, toScreen, zoomProgress} from '../lib/camera.ts';
+import {moodAt} from '../lib/emotion.ts';
 import {envAt} from '../lib/envelope.ts';
 import {rectStyle} from '../lib/geom.ts';
 import {narratorPose, type Cue} from '../lib/pose.ts';
-import {CAPTIONS, CARD, CHAR_BOX, CUES, SHOTS} from './narrator.data.ts';
+import {CAPTIONS, CARD, CHAR_BOX, CUES, MOODS, SHOTS} from './narrator.data.ts';
 
 const INK = '#1F1E1D';
 const CREAM = '#FAF9F5';
@@ -25,7 +26,7 @@ export const Narrator: React.FC<{audio: string | null; envelope: string | null; 
 
   // Cue targets are canvas points; the pointing arm follows them through the camera.
   const cues: Cue[] = CUES.map(({targetCanvas, ...c}) => ({...c, target: targetCanvas ? toScreen(cam, targetCanvas) : undefined}));
-  const pose = narratorPose(t, envAt(env, frame, fps), cues, {x: width * 0.6, y: height * 0.45});
+  const pose = narratorPose(t, envAt(env, frame, fps), cues, {x: width * 0.6, y: height * 0.45}, moodAt(t, MOODS));
 
   const caption = CAPTIONS.find((c) => t >= c.start && t < c.end);
   const capOpacity = caption ? Math.min(interpolate(t, [caption.start, caption.start + 0.15], [0, 1], {extrapolateRight: 'clamp'}), interpolate(t, [caption.end - 0.15, caption.end], [1, 0], {extrapolateLeft: 'clamp'})) : 0;

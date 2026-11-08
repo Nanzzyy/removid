@@ -1,0 +1,32 @@
+{
+  "_": "One table drives three things so they cannot drift apart: how the line is SPOKEN (voice), how the narrator's FACE and BODY act (face, body), and which gestures fit (gestures). Written as [tag] in SCRIPT.md. Numbers are starting values chosen by removid; the user's ear and eye decide.",
+  "transitionSec": 0.35,
+  "default": "neutral",
+  "tags": {
+    "neutral":   {"energy": 0.4,  "face": {"smile": 0.45, "brow": 0,     "raise": 0,   "eye": 1,    "tilt": 0},     "body": {"bounce": 1.0}, "voice": {"rate": 0,   "pitch": 0,   "volume": 0,  "pause": 0},    "gestures": ["wave", "point", "present"], "eleven": null,       "chatterbox": null, "voicestudio": null},
+    "warm":      {"energy": 0.5,  "face": {"smile": 0.9,  "brow": -0.1,  "raise": 0.1, "eye": 1.05, "tilt": 0.03},  "body": {"bounce": 1.0}, "voice": {"rate": -3,  "pitch": 2,   "volume": 0,  "pause": 0},    "gestures": ["wave", "present"],          "eleven": "warmly",  "chatterbox": null, "voicestudio": null},
+    "curious":   {"energy": 0.55, "face": {"smile": 0.4,  "brow": -0.15, "raise": 0.6, "eye": 1.12, "tilt": 0.08},  "body": {"bounce": 0.9}, "voice": {"rate": 0,   "pitch": 6,   "volume": 0,  "pause": 0},    "gestures": ["point", "present"],        "eleven": "curious",  "chatterbox": null, "voicestudio": null},
+    "confused":  {"energy": 0.35, "face": {"smile": 0.0,  "brow": -0.5,  "raise": 0.3, "eye": 1,    "tilt": 0.12},  "body": {"bounce": 0.6}, "voice": {"rate": -6,  "pitch": 3,   "volume": 0,  "pause": 0.1},  "gestures": ["present"],                 "eleven": "confused", "chatterbox": null, "voicestudio": "[pause 300ms]"},
+    "surprised": {"energy": 0.8,  "face": {"smile": 0.3,  "brow": -0.2,  "raise": 1.0, "eye": 1.3,  "tilt": 0},     "body": {"bounce": 1.3}, "voice": {"rate": 6,   "pitch": 10,  "volume": 3,  "pause": 0.1},  "gestures": ["point", "present"],        "eleven": "surprised", "chatterbox": "[gasp]", "voicestudio": "[surprise-oh]"},
+    "excited":   {"energy": 1.0,  "face": {"smile": 1.0,  "brow": -0.1,  "raise": 0.5, "eye": 1.15, "tilt": 0.04},  "body": {"bounce": 1.5}, "voice": {"rate": 10,  "pitch": 8,   "volume": 5,  "pause": 0},    "gestures": ["wave", "point", "present"], "eleven": "excited",  "chatterbox": null, "voicestudio": null},
+    "laugh":     {"energy": 0.9,  "face": {"smile": 1.0,  "brow": -0.2,  "raise": 0.3, "eye": 0.8,  "tilt": 0.06},  "body": {"bounce": 1.4}, "voice": {"rate": 4,   "pitch": 6,   "volume": 2,  "pause": 0},    "gestures": ["wave", "present"],          "eleven": "laughs",   "chatterbox": "[laugh]", "voicestudio": "[laughter]"},
+    "proud":     {"energy": 0.6,  "face": {"smile": 0.7,  "brow": 0.05,  "raise": 0.2, "eye": 1,    "tilt": -0.04}, "body": {"bounce": 0.9}, "voice": {"rate": -4,  "pitch": -2,  "volume": 2,  "pause": 0.1},  "gestures": ["present", "point"],        "eleven": "proudly",  "chatterbox": null, "voicestudio": null},
+    "serious":   {"energy": 0.45, "face": {"smile": 0.1,  "brow": 0.35,  "raise": 0,   "eye": 0.92, "tilt": 0},     "body": {"bounce": 0.5}, "voice": {"rate": -6,  "pitch": -6,  "volume": 0,  "pause": 0.15}, "gestures": ["point", "present"],        "eleven": "serious",  "chatterbox": null, "voicestudio": "[pause 250ms]"},
+    "mad":       {"energy": 0.9,  "face": {"smile": -0.4, "brow": 1.0,   "raise": 0,   "eye": 0.9,  "tilt": -0.03}, "body": {"bounce": 1.1}, "voice": {"rate": 6,   "pitch": -4,  "volume": 6,  "pause": 0},    "gestures": ["point"],                   "eleven": "angry",    "chatterbox": null, "voicestudio": "[dissatisfaction-hnn]"},
+    "sad":       {"energy": 0.15, "face": {"smile": -0.5, "brow": -0.9,  "raise": 0,   "eye": 0.85, "tilt": 0.1},   "body": {"bounce": 0.25}, "voice": {"rate": -12, "pitch": -8,  "volume": -4, "pause": 0.2},  "gestures": [],                          "eleven": "sad",      "chatterbox": null, "voicestudio": "[sigh]"},
+    "calm":      {"energy": 0.25, "face": {"smile": 0.6,  "brow": 0,     "raise": 0,   "eye": 0.95, "tilt": 0},     "body": {"bounce": 0.5}, "voice": {"rate": -8,  "pitch": -3,  "volume": -2, "pause": 0.1},  "gestures": ["present"],                 "eleven": "calm",     "chatterbox": null, "voicestudio": null}
+  },
+  "aliases": {
+    "happy": "warm", "senang": "warm", "friendly": "warm", "ramah": "warm", "hangat": "warm",
+    "wondering": "curious", "thinking": "curious", "penasaran": "curious", "ingin-tahu": "curious",
+    "worried": "confused", "bingung": "confused", "puzzled": "confused",
+    "shock": "surprised", "shocked": "surprised", "kaget": "surprised", "gasp": "surprised",
+    "semangat": "excited", "energetic": "excited", "antusias": "excited",
+    "laughs": "laugh", "laughing": "laugh", "lol": "laugh", "tertawa": "laugh", "chuckle": "laugh",
+    "bangga": "proud", "confident": "proud",
+    "serius": "serious", "firm": "serious", "tegas": "serious",
+    "angry": "mad", "marah": "mad", "kesal": "mad", "frustrated": "mad",
+    "sedih": "sad", "sigh": "sad", "sighs": "sad", "down": "sad",
+    "tenang": "calm", "relaxed": "calm", "soft": "calm"
+  }
+}

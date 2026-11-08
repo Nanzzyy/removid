@@ -4,9 +4,9 @@ The script comes first. It fixes the words, the order and the time budget; the s
 
 File: `Storyboard/SCRIPT.md`. Check: `project.mjs check script <proj>`. Gate 1 for narrated videos (`project-folder.md`).
 
-## Settle before writing (ask only what is missing, in one batch)
+## Settle before writing
 
-Topic and angle, the ONE message, audience, platform and length, tone, language, voice (see below), the call to action, and **what can be proven** (numbers, clients, testimonials, offers, the domain). A user-supplied script is the user's: keep every word, report the numbers, and offer a tightened version only as a separate suggestion.
+The brief and `intake` (`intake.md`) already settled what can be asked; the **structure** (`structure.md`) already fixed the beats, their times, the one idea of each and its emotion. The script is that plan in words: every block sits inside one beat. What can be proven (numbers, clients, testimonials, offers, the domain) goes in `## Claims` first. A user-supplied script is the user's: keep every word, report the numbers, and offer a tightened version only as a separate suggestion.
 
 ## Format
 
@@ -33,6 +33,8 @@ Usaha kecil sulit berkembang kalau terlihat kurang profesional.
 ```
 
 Each block is `[start–end] LABEL` and then only the words that are said. Direction, music and visuals belong to the storyboard. Gaps between blocks are visual-only beats.
+
+**Open each narrated block with its emotion tag** (`[curious] UMKM kamu sudah punya website?`). It is the delivery: it sets how the line is spoken, how the narrator's face acts and which gestures fit (`emotion-and-voice.md`). At most 2 per block, each covering 0.8 s or more; never spoken, never counted as words; part of what Gate 1 approves.
 
 ## The numbers (the checker computes them; do not eyeball)
 
@@ -70,9 +72,9 @@ Every number, superlative, offer (free, discount, guarantee), "trusted by", test
 
 A brand name the TTS engine spells out ("PrvTech" → "PiArVee Tek") or a domain read aloud ("prvtech.id" → "prvtech titik id") is longer than its word count. Prefer showing the domain on screen and saying only the name; the checker counts a domain as three words either way.
 
-## Voice
+## Voice (after Gate 1, never before)
 
-Ask: the user's own recording, or text-to-speech (which engine and voice; do not send the script to a service the user has not accepted). On `submit`, `Asset/agen/vo.txt` is written with the clean spoken text, one line per block; that is what goes to the TTS or the recording session (add engine-specific tags only if the engine supports them, and keep timestamps and labels out).
+The user's own recording, or text-to-speech from the engine settled at intake (Edge TTS id-ID by default; do not send the script to a service the user has not accepted). On `submit`, `Asset/agen/vo.txt` (clean words, one line per block) and `Asset/agen/vo-lines.json` are written; `project.mjs vo-lines <proj> --engine <name>` also writes `Asset/agen/lines/lineN.txt` in the form that engine can use: Edge gets rate/pitch/volume from the emotion tag, ElevenLabs keeps audio tags, VoiceBox keeps only `[laugh]`/`[gasp]` (`emotion-and-voice.md`).
 
 `vo-place` refuses a line that cannot fit its window and says by how much; `--fit` pushes the lines apart (0.35 s gaps) and pulls the tail back so the last word ends 0.5 s before the end, without editing the script. Level the voice at the same time: `vo-place <proj> --fit --lufs -15` (voice about -15 LUFS, effects 16 dB under it, so the final mix lands near -14 LUFS, the usual target for Reels/TikTok/Shorts; `probe-mp4.sh` checks it). Why stereo: the video carries the mono voice on two identical channels, which reads 3 dB louder than the mono file; a mono measure would leave the video at -12 LUFS (measured).
 

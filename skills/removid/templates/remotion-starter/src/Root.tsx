@@ -3,6 +3,7 @@ import {Composition} from 'remotion';
 import {z} from 'zod';
 import {FPS, H, s, W} from './lib/time.ts';
 import {CharacterSheet, SHEET_CELL} from './scenes/CharacterSheet.tsx';
+import {EMO_SHEET, EmotionSheet} from './scenes/EmotionSheet.tsx';
 import {Narrator} from './scenes/Narrator.tsx';
 import {DURATION_SEC as NARRATOR_SEC} from './scenes/narrator.data.ts';
 import {UiDemo} from './scenes/UiDemo.tsx';
@@ -25,6 +26,7 @@ export const Root: React.FC = () => (
       width={W}
       height={H}
     />
+    <Composition id="EmotionSheet" component={EmotionSheet} schema={z.object({id: z.string()})} defaultProps={{id: 'ayu'}} durationInFrames={1} fps={FPS} width={EMO_SHEET.cols * EMO_SHEET.cell.w} height={EMO_SHEET.rows * EMO_SHEET.cell.h} />
     <Composition id="CharacterSheet" component={CharacterSheet} schema={z.object({id: z.string()})} defaultProps={{id: 'ayu'}} durationInFrames={1} fps={FPS} width={3 * SHEET_CELL.w} height={SHEET_CELL.h} />
   </>
 );

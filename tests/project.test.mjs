@@ -18,11 +18,11 @@ const run = (...args) => { const r = spawnSync('node', [PM, ...args], {encoding:
 let n = 0;
 function project(opts = {}) {
   const root = path.join(tmp, 'root' + n++);
-  const a = ['new', 'PrvTech', 'promo-umkm', '--root', root, '--format', 'landscape', '--duration', '30', '--narration', opts.narration || 'yes', '--voice', 'cowok', '--character', opts.character || (opts.narration === 'no' ? 'none' : 'ayu'), '--brief', 'brief in the user words'];
+  const a = ['new', 'PrvTech', 'promo-umkm', '--root', root, '--format', 'landscape', '--duration', '30', '--narration', opts.narration || 'yes', '--voice', 'cowok', '--character', opts.character || (opts.narration === 'no' ? 'none' : 'ayu'), '--style', opts.style || 'flatlife', '--brief', 'brief in the user words'];
   if (opts.type) a.push('--type', opts.type);
   const r = run(...a); assert.equal(r.code, 0, r.out);
   const dir = path.join(root, 'PrvTech', fs.readdirSync(path.join(root, 'PrvTech'))[0]);
-  if (!opts.empty) { fs.copyFileSync(path.join(FIX, 'SCRIPT.md'), path.join(dir, 'Storyboard/SCRIPT.md')); fs.copyFileSync(path.join(FIX, 'STORYBOARD.md'), path.join(dir, 'Storyboard/STORYBOARD.md')); }
+  if (!opts.empty) { fs.copyFileSync(path.join(FIX, 'STRUCTURE.md'), path.join(dir, 'Storyboard/STRUCTURE.md')); fs.copyFileSync(path.join(FIX, 'SCRIPT.md'), path.join(dir, 'Storyboard/SCRIPT.md')); fs.copyFileSync(path.join(FIX, 'STORYBOARD.md'), path.join(dir, 'Storyboard/STORYBOARD.md')); }
   return dir;
 }
 const edit = (file, from, to) => { const t = fs.readFileSync(file, 'utf8'); assert.ok(t.includes(from), `fixture no longer contains: ${from}`); fs.writeFileSync(file, t.replace(from, to)); };

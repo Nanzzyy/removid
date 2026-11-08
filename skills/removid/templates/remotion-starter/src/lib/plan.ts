@@ -6,7 +6,9 @@
 
 export type PlanVo = {start: number; end: number; text: string};
 export type PlanFrame = {id: number; name: string; start: number; end: number; startFrame: number; endFrame: number; durationFrames: number; clipFrames: number; vo: PlanVo[]};
-export type Plan = {fps: number; totalSec: number; totalFrames: number; frames: PlanFrame[]};
+export type PlanTransition = {kind: 'none' | 'cut' | 'fade' | 'slide' | 'wipe'; sec: number};
+/** `emotions` and `style` are present when the project has emotion tags and a style (project.mjs check storyboard writes them). */
+export type Plan = {fps: number; totalSec: number; totalFrames: number; frames: Array<PlanFrame & {transition?: PlanTransition}>; emotions?: import('./emotion.ts').EmotionPlan | null; style?: import('./style.ts').StyleTokens | null};
 
 /** Picture rendered before and after a scene's range, for the crossfade. 15 frames = 0.25 s at 60 fps (0.5 s of overlap between clips). */
 export const HANDLE_FRAMES = 15;

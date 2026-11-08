@@ -173,6 +173,7 @@ function buildHumanoid(spec: HumanoidSpec): Model {
   const eyes = new THREE.Group();
   head.add(eyes);
   const eyeMeshes: THREE.Mesh[] = [];
+  const brows: Array<{mesh: THREE.Mesh; x: number}> = [];
   for (const x of [-0.33, 0.33]) {
     const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.135 * (spec.eyeScale ?? 1.1), 18, 14), white);
     sclera.scale.set(1, 1.15, 0.45);
@@ -185,6 +186,7 @@ function buildHumanoid(spec: HumanoidSpec): Model {
     const brow = new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.06, 0.06, 2, 0.02), hair);
     brow.position.set(x, 0.09, 0.82);
     head.add(brow);
+    brows.push({mesh: brow, x});
     if (spec.glasses) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.235, 0.028, 10, 32), new THREE.MeshStandardMaterial({color: 0x23262b, roughness: 0.4}));
       ring.position.set(x, -0.12, 0.86);
@@ -308,14 +310,24 @@ function buildHumanoid(spec: HumanoidSpec): Model {
     torso,
     eyes,
     eyeMeshes,
+    // smile: -1 frown .. 0 flat .. 1 broad smile (0.55 = the resting smile of the first version, drawn exactly as before)
     setMouth(open, smile) {
       const closed = open < 0.12;
       smileMesh.visible = closed;
       mouth.visible = !closed;
-      smileMesh.position.set(0, -0.46, mouthZ);
-      smileMesh.scale.set(0.9 + smile * 0.5, 0.9 + smile * 0.4, 1);
-      mouth.scale.set(0.17 + smile * 0.05 + open * 0.035, 0.028 + open * 0.17, 0.08);
+      const m = Math.abs(smile);
+      smileMesh.rotation.z = smile < 0 ? 0 : Math.PI;
+      smileMesh.position.set(0, smile < 0 ? -0.5 : -0.46, mouthZ);
+      smileMesh.scale.set(0.9 + m * 0.5, m <= 0.5 ? 0.15 + 1.9 * m : 0.9 + 0.4 * m, 1);
+      mouth.scale.set(0.17 + m * 0.05 + open * 0.035, 0.028 + open * 0.17, 0.08);
       mouth.position.set(0, -0.52 - open * 0.04, mouthZ);
+    },
+    // brows: tilt the inner ends (angry down, sad up) and lift them (curious, surprised); symmetric, so no random asymmetry appears
+    setExpression(e) {
+      for (const {mesh, x} of brows) {
+        mesh.rotation.z = (x < 0 ? -1 : 1) * e.brow * 0.45;
+        mesh.position.y = 0.09 + e.raise * 0.075 - Math.max(0, e.brow) * 0.025 + Math.max(0, -e.brow) * 0.015;
+      }
     },
     arms: {L: makeArm('L'), R: makeArm('R')},
     update(pose) {
@@ -323,5 +335,6 @@ function buildHumanoid(spec: HumanoidSpec): Model {
     },
   };
   model.setMouth(0, 0.5); // a unit shape until it is sized
+  model.setExpression?.({smile: 0.5, brow: 0, raise: 0, eye: 1, tilt: 0});
   return model;
 }

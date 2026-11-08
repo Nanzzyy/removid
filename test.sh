@@ -16,7 +16,7 @@ for f in "$root"/install.sh "$root"/test.sh "$root"/skills/removid/scripts/*.sh;
 
 step "project tool: script, storyboard and gate tests (mutants must be rejected)"
 run node --check "$root/skills/removid/scripts/project.mjs"
-run node --test "$root/tests/project.test.mjs"
+run node --test "$root"/tests/*.test.mjs
 
 step "install / uninstall into a throwaway project"
 run "$root/install.sh" --project "$tmp/proj"
@@ -34,6 +34,16 @@ step "character contract must FAIL on a broken character (mutant)"
   && sed -i 's/eyeMeshes.push(eye, glint);/ /' src/characters/voxel.ts \
   && run_fail node scripts/check-logic.mjs; cp "$tmp/vx.bak" src/characters/voxel.ts )
 
+step "emotion and style checks must FAIL when the code they guard is broken (mutants)"
+( cd "$tmp/app" && cp src/lib/emotion.ts "$tmp/em.bak" \
+  && sed -i 's/const blend = plan!.transitionSec || 0.35;/const blend = 0.001;/' src/lib/emotion.ts \
+  && run_fail node scripts/check-logic.mjs; cp "$tmp/em.bak" src/lib/emotion.ts
+  cp src/style.ts "$tmp/st.bak" && sed -i 's/outCubic/bouncyEase/' src/style.ts \
+  && run_fail node scripts/check-logic.mjs; cp "$tmp/st.bak" src/style.ts
+  cp src/characters/humanoid.ts "$tmp/hu.bak" && sed -i 's/mesh.position.y = 0.09 + e.raise \* 0.075/mesh.position.y = 5 + e.raise * 0.075/' src/characters/humanoid.ts \
+  && run_fail node scripts/check-logic.mjs; cp "$tmp/hu.bak" src/characters/humanoid.ts
+  run node scripts/check-logic.mjs )
+
 step "numeric checks must FAIL on a broken scene (mutant)"
 ( cd "$tmp/app" && cp src/scenes/narrator.data.ts "$tmp/nd.bak" \
   && sed -i 's/anchor: {x: 0.7, y: 0.5}/anchor: {x: 0.5, y: 0.5}/' src/scenes/narrator.data.ts \
@@ -48,6 +58,8 @@ if [ "$full" -eq 1 ]; then
     && run_fail node scripts/check-click-stills.mjs UiDemo; cp "$tmp/cl.bak" src/components/CursorLayer.tsx )
   step "character sheets: every character renders, is not clipped, has a sensible size"
   ( cd "$tmp/app" && run node scripts/character-sheet.mjs --all )
+  step "emotion sheets: every emotion of the table is drawn and reads differently from neutral (a humanoid and a mascot)"
+  ( cd "$tmp/app" && run node scripts/character-sheet.mjs ayu bolo --emotions )
   step "stills at global times"
   ( cd "$tmp/app" && run node scripts/stills.mjs 1.0,5.0 --id UiDemo && run test -s out/stills/UiDemo-t5.00.png )
   step "render both scenes at 60 fps and probe"
