@@ -331,3 +331,14 @@ test('the asset ledger: files the build uses are listed, and files the storyboar
   assert.ok(!/is not in the project yet/.test(r.out)); assert.match(r.out, /not listed in Asset\/ASSETS\.md .*Asset\/owner\/prvtech-logo\.svg/);
   fs.appendFileSync(path.join(d, 'Asset/ASSETS.md'), '| prvtech-logo.svg | owner | the owner\'s logo | 3 |\n'); r = run('check', 'storyboard', d); assert.ok(!/not listed in Asset\/ASSETS\.md/.test(r.out) && !/is not in the project yet/.test(r.out));
 });
+
+// ---------- repository hygiene ----------
+test('the style library in source-material mirrors styles.json, and no tracked path has a space', () => {
+  const lib = path.join(ROOT, 'source-material/creative-agent-style-library/styles'); assert.ok(fs.existsSync(lib), 'source-material/creative-agent-style-library/styles');
+  const slugs = fs.readdirSync(lib).flatMap((c) => fs.readdirSync(path.join(lib, c)).map((f) => f.replace(/\.md$/, ''))).sort();
+  assert.deepEqual(slugs, Object.keys(S.loadStyles().styles).sort(), 'a style exists in the library or in styles.json only');
+  assert.ok(!fs.existsSync(path.join(ROOT, 'NEW FOLDER SKILL AND STYLE')));
+  for (const f of ['AGENTS.upstream.md', 'CLAUDE.upstream.md']) assert.ok(fs.existsSync(path.join(ROOT, 'source-material/creative-agent-style-library', f)), f);
+  for (const f of ['AGENTS.md', 'CLAUDE.md']) assert.ok(!fs.existsSync(path.join(ROOT, 'source-material/creative-agent-style-library', f)), `${f} in the library would load a second workflow`);
+  const g = spawnSync('git', ['ls-files'], {cwd: ROOT, encoding: 'utf8'}); if (g.status === 0) assert.deepEqual(g.stdout.split('\n').filter((p) => / /.test(p)), [], 'tracked paths with spaces');
+});

@@ -1,5 +1,5 @@
 {
-  "_": "36 video styles as numbers removid can check and Remotion can read. Names and one-line intents come from the creative-agent-style-library the owner added (public catalogue names, interpreted); palettes, rhythm, transitions and limits are removid's own choices, not an official spec of any site.",
+  "_": "36 video styles as numbers removid can check and Remotion can read. Names and one-line intents come from the creative-agent-style-library the owner added (source-material/creative-agent-style-library) (public catalogue names, interpreted); palettes, rhythm, transitions and limits are removid's own choices, not an official spec of any site.",
   "defaults": {
     "motion-3d": {"build": "remotion-three", "shotSec": [2.5, 6], "transition": ["fade", 0.5], "zoomMax": 1.7, "maxWords": 8, "holdMin": 0.2, "ease": {"enter": "outCubic", "move": "inOutSine"}, "stepFps": 0, "gestures": 3, "sfx": ["click", "tick", "whoosh", "impact", "chime"]},
     "motion-graphics": {"build": "remotion-2d", "shotSec": [2, 5], "transition": ["fade", 0.4], "zoomMax": 1.6, "maxWords": 8, "holdMin": 0.2, "ease": {"enter": "outCubic", "move": "inOutQuad"}, "stepFps": 0, "gestures": 3, "sfx": ["click", "tick", "whoosh", "impact", "chime"]},

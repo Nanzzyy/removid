@@ -11,6 +11,7 @@ This repo ships one agent skill, `removid`, for making programmatic video with R
 - `skills/removid/templates/project/`: the files a new project folder starts from.
 - `tests/`: `project.test.mjs` and the 30 s PrvTech fixture (the user's original script, a tightened script, a storyboard).
 - `skills/removid/templates/remotion-starter/`: the tested Remotion starter. Inside the skill directory on purpose: only that directory is installed, so anything outside it is invisible to the agent.
+- `source-material/`: reference material the skill was built from (the owner's style library). Not installed, not part of the skill; see its README for how it maps to `styles/styles.json`. Tracked paths contain no spaces.
 - `install.sh`: symlinks (or copies) the skill into each agent's skills directory.
 
 ## Rules when editing

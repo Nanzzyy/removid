@@ -90,6 +90,10 @@ node $P assemble promo-umkm          # HyperFrames index.html from plan.json; re
 
 Inside `Source/remotion`: `npm run check` (zoom, cursor, pose, lip sync), `npm run check:cursor` (cursor tip on its targets, in pixels), `npm run studio`. Folder layout and gates: `skills/removid/references/project-folder.md`.
 
+## Source material
+
+`source-material/creative-agent-style-library/` holds the prose style guides the 36 checked styles were distilled from (provenance and mapping: `source-material/README.md`). It is reference only and is never installed.
+
 ## Test this repo
 
 ```bash

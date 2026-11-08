@@ -39,4 +39,4 @@ The library these came from has Blender and NLE routes; removid keeps its own ro
 
 ## Choosing
 
-Propose the three that fit (`style --for`), say in one line why each, recommend one. A style named by the user is used as named. Mix only on request: one style per video keeps the rules coherent. Provenance: the names and one-line intents come from the user's `creative-agent-style-library` (public catalogue names, interpreted); the tokens are removid's own and are a starting point the user's eye can change.
+Propose the three that fit (`style --for`), say in one line why each, recommend one. A style named by the user is used as named. Mix only on request: one style per video keeps the rules coherent. Provenance: the names and one-line intents come from the user's `creative-agent-style-library` (kept in `source-material/`) (public catalogue names, interpreted); the tokens are removid's own and are a starting point the user's eye can change.
