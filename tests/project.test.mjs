@@ -319,3 +319,24 @@ test('the Gate 1 contract is printed by intake (text and json) and by new', () =
   assert.match(JSON.parse(run('intake', 'video tentang evolusi', '--json').out).gate1_contract, /Do not write the script or a plan in chat/);
   const r = run('new', 'Acme', 'x', '--root', path.join(tmp, 'rootc'), '--narration', 'yes', '--brief', 'b'); assert.match(r.out, /GATE 1 CONTRACT/);
 });
+
+const REPLIES = path.join(ROOT, 'tests/fixtures/ai-critical/replies');
+function aiProject() {
+  const d = project({empty: true}); edit(path.join(d, 'PROJECT.md'), 'target_duration: 30', 'target_duration: 38');
+  for (const f of ['STRUCTURE.md', 'SCRIPT.md']) fs.copyFileSync(path.join(ROOT, 'tests/fixtures/ai-critical', f), path.join(d, 'Storyboard', f));
+  return d;
+}
+test('verify-reply accepts the owner\'s clean format and rejects every bad output the owner pasted', () => {
+  const d = aiProject(); const v = (f, ...x) => run('verify-reply', d, path.join(REPLIES, f), ...x);
+  assert.equal(v('good.txt').code, 0, v('good.txt').out);
+  const cases = {'bad-timed-table.txt': /second, timed script/, 'bad-stages.txt': /labelled stage/, 'bad-asks-audio.txt': /audio path/, 'bad-block-dirty.txt': /seconds inside the line/, 'bad-block-edited.txt': /differs from Storyboard\/SCRIPT\.md/};
+  for (const [f, re] of Object.entries(cases)) { const r = v(f); assert.notEqual(r.code, 0, `${f} must fail`); assert.match(r.out, re, f); }
+});
+test('verify-reply: a bare block works, a misspelled tag and a missing block fail, --format-only needs no project', () => {
+  const bare = '[curious] Tau nggak?\n\n[calm, reassuring] Santai saja.\n';
+  const f = path.join(tmp, 'bare.txt'); fs.writeFileSync(f, bare);
+  assert.equal(run('verify-reply', '--format-only', f).code, 0);
+  fs.writeFileSync(f, '[curoius] Tau nggak?\n\n[calm] Santai.\n'); const bad = run('verify-reply', '--format-only', f); assert.notEqual(bad.code, 0); assert.match(bad.out, /misspelled/);
+  fs.writeFileSync(f, 'Hook: tau nggak?\nSantai saja.\n'); assert.match(run('verify-reply', '--format-only', f).out, /no VO script block/);
+  fs.writeFileSync(f, '```\n[curious] Tau nggak?\nSanta saja.\n```\n'); assert.match(run('verify-reply', '--format-only', f).out, /one paragraph|line break/);
+});

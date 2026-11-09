@@ -208,6 +208,7 @@ const GATE1_CONTRACT = [
   '  - Storyboard/SCRIPT.md holds ONLY spoken words: one paragraph per spoken beat of STRUCTURE.md, each opening with an emotion tag, a blank line between.',
   '    No seconds, no "Tahap 1"/"Hook:" labels, no (scene or zoom directions). Time budgets live in STRUCTURE.md; picture and camera live in STORYBOARD.md.',
   '  - Do not write the script or a plan in chat. Write the files, run `check script`, `submit script`, and paste the VO SCRIPT block the tool prints.',
+  '  - Before you send that message, save it to a file and run `verify-reply <project> <file>`: it fails on a timed or labelled second script, an edited VO block, or a question about the audio path. Fix, then send.',
   '  - Start the script file with `script-init <project>`: it writes one tagged paragraph per spoken beat; you replace each TODO with the words.',
 ].join('\n');
 const lineTag = (b, i) => (b.beatN ? `line ${i + 1} (beat ${b.beatN}, budget ${f2(b.start)}–${f2(b.end)} s)` : `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`);
@@ -738,6 +739,48 @@ function writePlan(proj, r, data) {
  * The clean voice script: what a person pastes into any TTS or reads into a microphone. Only the lines, each opening with its emotion tag as the
  * author wrote it, one blank line between lines (so it can be cut line by line). No times, labels, scene directions, claims or notes.
  */
+/**
+ * Checks the message an agent is about to send (or sent) at Gate 1 or when the user asks for "the script": the VO script must be ONE block of
+ * tagged lines the user can paste into any TTS, byte-for-byte what SCRIPT.md holds, and nowhere else in the message may a second, timed or labelled
+ * script appear. `expected` is the project's VO script text (null = format only, outside a project).
+ */
+function verifyReply(text, expected) {
+  const issues = []; const E = (m) => issues.push({level: 'error', msg: m});
+  const norm = (t) => t.split('\n').map((l) => l.trim()).join('\n').replace(/\n{2,}/g, '\n\n').trim();
+  const fences = [...text.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map((m) => ({body: m[1], at: m.index, len: m[0].length}));
+  const tagged = (b) => { const ps = b.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean); return ps.length && ps.every((x) => /^\[[^\]\n]+\]\s*\S/.test(x)); };
+  let block = fences.find((f) => tagged(f.body));
+  if (!block) { const m = text.match(/(?:^|\n)((?:\[[^\]\n]+\][^\n]*(?:\n\s*\n|\n?$))+)/); if (m) block = {body: m[1], at: m.index, len: m[0].length, bare: true}; }
+  if (!block) { E('no VO script block found: the script must be given as one block of lines, each opening with its emotion tag, a blank line between, for example "[curious] Tau nggak? ..."'); }
+  else {
+    const body = norm(block.body); const paras = body.split(/\n\n/);
+    paras.forEach((para, i) => {
+      const where = `VO line ${i + 1}`;
+      if (!/^\[[^\]\n]+\]\s*\S/.test(para)) { E(`${where}: it does not open with an emotion tag`); return; }
+      if (/\n/.test(para)) E(`${where}: a line is one paragraph; split lines with a blank line, not a line break inside`);
+      const b = parseScript(para, null).blocks[0];
+      if (b) for (const t of b.tags) if (t.typos.length) E(`${where}: the tag [${t.raw || ''}] has a misspelled word (${t.typos.join(', ')})`);
+      if (/\b\d{1,2}(?:[.,]\d+)?\s*[–—-]\s*\d{1,2}(?:[.,]\d+)?\s*(?:s|dtk|detik|sec)\b|\(\s*\d+(?:[.,]\d+)?\s*(?:s|dtk|detik)\s*\)/i.test(para)) E(`${where}: seconds inside the line`);
+      if (/^\[[^\]]*\]\s*(?:hook|tahap|beat|scene|adegan|frame|shot|segmen|bagian|outro|cta|closing)\s*(?:\d+|\(|:|—|–|-)/i.test(para)) E(`${where}: a stage label opens the line`);
+      if (/\((?:[^)]*\b(?:zoom|kamera|camera|visual|layar|tampil|scene|transisi|shot|cut to|fade)\b[^)]*)\)/i.test(para)) E(`${where}: a stage direction in brackets`);
+      if (/^\s*\|/m.test(para)) E(`${where}: a table row inside the VO block`);
+    });
+    if (expected != null && norm(expected) !== body) {
+      const want = norm(expected).split('\n\n'); const at = paras.findIndex((x, i) => x !== want[i]);
+      E(`the VO block differs from Storyboard/SCRIPT.md (${paras.length} line(s) vs ${want.length}; first difference at line ${(at < 0 ? Math.min(paras.length, want.length) : at) + 1}). Paste what \`vo-script\` prints, unedited.`);
+    }
+    text = text.slice(0, block.at) + text.slice(block.at + block.len);
+  }
+  // Everywhere else: no second script. The structure table may carry time ranges, but not next to spoken sentences.
+  const range = /\b\d{1,2}(?:[.,]\d+)?\s*[–—-]\s*\d{1,3}(?:[.,]\d+)?\s*(?:s|dtk|detik|sec)?\b/;
+  text.split('\n').forEach((l, i) => {
+    const quoted = (l.match(/["“”«][^"“”»]{18,}["“”»]/g) || []).filter((q) => q.split(/\s+/).length >= 4);
+    if (range.test(l) && quoted.length) E(`message line ${i + 1}: a time range next to quoted narration ("${quoted[0].slice(0, 36)}..."). That is a second, timed script; the narration appears once, in the VO block, and the timing in the structure table.`);
+    if (/^\s*(?:[-*]\s*)?(?:\*\*)?(?:tahap|hook|segmen|adegan|scene)\s*\d*\s*(?:\([^)]*\))?\s*[:—–]\s*\S/i.test(l) && /["“”]|\bnarasi\b|\bnaskah\b/i.test(l)) E(`message line ${i + 1}: a labelled stage with narration ("${l.trim().slice(0, 40)}..."). Stages belong to the storyboard walkthrough, not the script.`);
+    if (/\b(?:di mana|dimana|lokasi|path)\b[^\n]{0,40}\b(?:file )?audio\b|\bberapa (?:detik|menit)\b[^\n]{0,30}\baudio\b|\baudio[^\n]{0,30}\bberapa (?:detik|menit)\b/i.test(l)) E(`message line ${i + 1}: asks for the audio path or its length. Never ask: \`vo\`/\`vo-split\` measure the file; ask the user to send it.`);
+  });
+  return issues;
+}
 const voScriptText = (blocks) => blocks.map((b) => b.rawText.replace(/\s+/g, ' ').trim()).join('\n\n') + '\n';
 /** Asset/agen/vo.txt (clean words, one line per block) and vo-lines.json (every engine's version of each line, from the emotion tags). `engine` also writes lines/lineN.txt. */
 function writeVoLines(proj, engine) {
@@ -964,6 +1007,13 @@ const COMMANDS = {
     lines.forEach((l) => out(`  ${String(l.n).padStart(1)}  ${f2(l.start).padStart(5)}–${f2(l.end).padEnd(6)}  ${l.emotion.padEnd(10)}  ${(l.engines.edge.rate + ' ' + l.engines.edge.pitch + ' ' + l.engines.edge.volume).padEnd(22)}   ${l.text.slice(0, 48)}`));
     out(`\nwrote Asset/agen/vo-lines.json${eng ? ` and Asset/agen/lines/line1..${lines.length}.txt (${eng})` : ''}`);
     out('Edge TTS (no emotion tags; the settings above carry the emotion), one file per line, for example:\n  edge-tts --voice id-ID-GadisNeural --rate=<rate> --pitch=<pitch> --volume=<volume> --text "<text>" --write-media Asset/agen/line1.mp3\nThen `vo-place <project> --fit --lufs -15`. The emotion tags drive the narrator\'s face and gestures either way.');
+  },
+  'verify-reply'(pos, opt) {
+    const [a, b] = pos; const fromStdin = (f) => (f === '-' ? fs.readFileSync(0, 'utf8') : read(f));
+    if (opt['format-only']) { const f = typeof opt['format-only'] === 'string' ? opt['format-only'] : a; if (!f) die('usage: verify-reply --format-only <message-file|->', 2); process.exit(printIssues(verifyReply(fromStdin(f), null)) ? 1 : 0); }
+    if (!a || !b) die('usage: verify-reply <project> <message-file|-> [--format-only <file>]\n  Checks the message you are about to send at Gate 1 (or when the user asks for the script). Run it, fix every error, then send.', 2);
+    const proj = findProject(a, opt); const sc = loadScript(proj).blocks.filter((x) => x.text); if (!sc.length) die('the script has no lines yet');
+    process.exit(printIssues(verifyReply(fromStdin(b), voScriptText(sc))) ? 1 : 0);
   },
   'vo-script'(pos, opt) {
     const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project');

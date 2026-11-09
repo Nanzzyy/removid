@@ -2,6 +2,10 @@
 
 `node skills/removid/scripts/project.mjs version` prints the version the agent is actually running, and whether it is behind `origin/main`.
 
+## 0.9.0
+- `verify-reply <project> <message-file|->` checks the message an agent is about to send: exactly one VO block of tagged lines, byte-identical to `SCRIPT.md`; no seconds, stage labels or directions in it; no second timed script ("0–3s ... \"narration\"", "Tahap 1: ...") anywhere else; no question about the audio path or length. `--format-only` does the format part outside a project. Fixtures are the real bad outputs the owner pasted.
+- The Gate 1 contract and `SKILL.md` tell the agent to run it before sending, and that the user's format wins whenever they ask for the script.
+
 ## 0.8.1
 - `script-init <project>` writes `SCRIPT.md` from the structure: one emotion-tagged paragraph per spoken beat, nothing else, so the agent fills words instead of inventing a format. It refuses to overwrite a script that already has words (`--force`).
 - The Gate 1 contract (what the script file is, what the chat message is, no drafting in chat) is printed by `intake` (also in `--json` as `gate1_contract`) and by `new`, the first commands every run uses, instead of living only in `SKILL.md`.

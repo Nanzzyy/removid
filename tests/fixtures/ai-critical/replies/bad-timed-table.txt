@@ -1,0 +1,8 @@
+Skrip narasi — "Evolusi Manusia" (~27-30s, vertikal 1080x1920 @60fps)
+
+| Segmen | Waktu | Baris narasi |
+|---|---|---|
+| Hook | 0–3s | "Tau nggak? Nenek moyang kita dulu... bahkan nggak bisa ngomong kayak kita sekarang." |
+| Purba | 3–9s | "Jutaan tahun lalu, manusia purba cuma bisa jalan membungkuk, pakai batu buat berburu." |
+
+Kirim file audionya, ya.
