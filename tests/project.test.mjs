@@ -18,14 +18,15 @@ const run = (...args) => { const r = spawnSync('node', [PM, ...args], {encoding:
 let n = 0;
 function project(opts = {}) {
   const root = path.join(tmp, 'root' + n++);
-  const a = ['new', 'PrvTech', 'promo-umkm', '--root', root, '--format', 'landscape', '--duration', '30', '--narration', opts.narration || 'yes', '--voice', 'cowok', '--character', opts.character || (opts.narration === 'no' ? 'none' : 'ayu'), '--style', opts.style || 'flatlife', '--brief', 'brief in the user words'];
+  const a = ['new', 'PrvTech', 'promo-umkm', '--root', root, '--format', 'landscape', '--duration', '30', '--wps', String(opts.wps || 2), '--narration', opts.narration || 'yes', '--voice', 'cowok', '--character', opts.character || (opts.narration === 'no' ? 'none' : 'ayu'), '--style', opts.style || 'flatlife', '--brief', 'brief in the user words'];
   if (opts.type) a.push('--type', opts.type);
   const r = run(...a); assert.equal(r.code, 0, r.out);
   const dir = path.join(root, 'PrvTech', fs.readdirSync(path.join(root, 'PrvTech'))[0]);
-  if (!opts.empty) { fs.copyFileSync(path.join(FIX, 'STRUCTURE.md'), path.join(dir, 'Storyboard/STRUCTURE.md')); fs.copyFileSync(path.join(FIX, 'SCRIPT.md'), path.join(dir, 'Storyboard/SCRIPT.md')); fs.copyFileSync(path.join(FIX, 'STORYBOARD.md'), path.join(dir, 'Storyboard/STORYBOARD.md')); }
+  if (!opts.empty) { fs.copyFileSync(path.join(FIX, 'STRUCTURE.md'), path.join(dir, 'Storyboard/STRUCTURE.md')); fs.copyFileSync(path.join(FIX, 'SCRIPT.md'), path.join(dir, 'Storyboard/SCRIPT.md')); fs.copyFileSync(path.join(FIX, 'CLAIMS.md'), path.join(dir, 'Storyboard/CLAIMS.md')); fs.copyFileSync(path.join(FIX, 'STORYBOARD.md'), path.join(dir, 'Storyboard/STORYBOARD.md')); }
   return dir;
 }
 const edit = (file, from, to) => { const t = fs.readFileSync(file, 'utf8'); assert.ok(t.includes(from), `fixture no longer contains: ${from}`); fs.writeFileSync(file, t.replace(from, to)); };
+const CL = (d) => path.join(d, 'Storyboard/CLAIMS.md');
 const SB = (d) => path.join(d, 'Storyboard/STORYBOARD.md'), SC = (d) => path.join(d, 'Storyboard/SCRIPT.md');
 const FFMPEG = process.env.REMOVID_FFMPEG || process.env.HYPERFRAMES_FFMPEG_PATH || 'ffmpeg';
 const hasFfmpeg = spawnSync(FFMPEG, ['-version']).status === 0 && spawnSync('ffprobe', ['-version']).status === 0;
@@ -34,7 +35,7 @@ const fullFfmpeg = hasFfmpeg && ['aevalsrc', 'anoisesrc', 'afade', 'highpass', '
 
 test('folder schema is created as designed', () => {
   const d = project({empty: true, type: 'footage'});
-  for (const p of ['PROJECT.md', 'Reference/REFERENCES.md', 'Reference/_TEMPLATE.analysis.md', 'Raw-Footage/SOURCES.md', 'Storyboard/SCRIPT.md', 'Storyboard/STORYBOARD.md', 'Asset/ASSETS.md', 'Asset/owner', 'Asset/agen', 'Asset/scenes', 'Source/remotion', 'Source/hyperframes', 'Result'])
+  for (const p of ['PROJECT.md', 'Reference/REFERENCES.md', 'Reference/_TEMPLATE.analysis.md', 'Raw-Footage/SOURCES.md', 'Storyboard/SCRIPT.md', 'Storyboard/CLAIMS.md', 'Storyboard/STORYBOARD.md', 'Asset/ASSETS.md', 'Asset/owner', 'Asset/agen', 'Asset/scenes', 'Source/remotion', 'Source/hyperframes', 'Result'])
     assert.ok(fs.existsSync(path.join(d, p)), 'missing ' + p);
   const t = fs.readFileSync(path.join(d, 'PROJECT.md'), 'utf8');
   assert.match(t, /> brief in the user words/); assert.match(t, /fps: 60/); assert.match(t, /size: 1920x1080/);
@@ -50,7 +51,7 @@ test('untouched templates fail both checks', () => {
 });
 
 test('the owner\'s original 30 s script is rejected with numbers', () => {
-  const d = project(); fs.copyFileSync(path.join(FIX, 'SCRIPT.original.md'), SC(d));
+  const d = project(); fs.copyFileSync(path.join(FIX, 'SCRIPT.original.md'), SC(d)); fs.rmSync(CL(d));
   const r = run('check', 'script', d); assert.equal(r.code, 1);
   assert.equal((r.out.match(/<- too long/g) || []).length, 6, r.out);
   assert.match(r.out, /total speech ~3\d\.\d\d s is longer than the video/);
@@ -65,9 +66,10 @@ test('script mutants are rejected', () => {
   m('UMKM kamu sudah punya website?', 'UMKM kamu sudah punya website sendiri belum atau masih pakai cara lama?', /line 1 \(beat 1, budget 0\.00–3\.00 s\): needs/);
   m('Tampil rapi di mata pelanggan.', 'Tampil rapi untuk tiga juta pelanggan.', /"juta" is a claim/); // numbers spelled out count as claims too
   m('Tampil rapi di mata pelanggan.', 'TODO', /placeholder or empty/);
-  m('| gratis | owner-confirmed |', '| terbaik | owner-confirmed |', /"gratis" is a claim/);
-  m('| prvtech.id | placeholder |', '| prvtech.id | guessed |', /status must be one of/);
-  m('narration: yes', 'narration: no', /narration must equal/);
+  const c = (from, to, re) => { const d = project(); edit(CL(d), from, to); const r = run('check', 'script', d); assert.equal(r.code, 1, `${from} -> ${to}\n${r.out}`); assert.match(r.out, re); };
+  c('| gratis | owner-confirmed |', '| terbaik | owner-confirmed |', /"gratis" is a claim/);
+  c('| prvtech.id | placeholder |', '| prvtech.id | guessed |', /status must be one of/);
+  { const d = project(); fs.writeFileSync(SC(d), '---\nnarration: no\n---\n' + fs.readFileSync(SC(d), 'utf8')); const r = run('check', 'script', d); assert.equal(r.code, 1); assert.match(r.out, /narration must equal/); }
 });
 
 test('the storyboard fixture passes and plan.json carries exact frame counts', () => {
@@ -170,8 +172,8 @@ test('gates: nothing moves without a submit, evidence, and a matching hash', () 
   fs.mkdirSync(path.join(d, 'Result/sample'), {recursive: true}); fs.writeFileSync(path.join(d, 'Result/sample/sample.mp4'), 'x');
   assert.equal(run('approve', 'sample', d, '--evidence', 'sampel bagus').code, 0);
   const full = run('gate', 'full', d); assert.equal(full.code, 1); assert.match(full.out, /placeholder claims remain: "prvtech\.id"/);
-  // confirming the domain edits only ## Claims: approvals survive
-  edit(SC(d), '| prvtech.id | placeholder | domain not confirmed by the owner |', '| prvtech.id | owner-confirmed | the owner said so |');
+  // confirming the domain edits only CLAIMS.md: approvals survive
+  edit(CL(d), '| prvtech.id | placeholder | domain not confirmed by the owner |', '| prvtech.id | owner-confirmed | the owner said so |');
   assert.equal(run('gate', 'full', d).code, 0, 'a claim update must not cancel approvals');
   // changing a word in the script cancels everything downstream
   edit(SC(d), 'Tampil rapi di mata pelanggan.', 'Tampil rapi di depan pelanggan.');
@@ -322,8 +324,8 @@ test('the Gate 1 contract is printed by intake (text and json) and by new', () =
 
 const REPLIES = path.join(ROOT, 'tests/fixtures/ai-critical/replies');
 function aiProject() {
-  const d = project({empty: true}); edit(path.join(d, 'PROJECT.md'), 'target_duration: 30', 'target_duration: 38');
-  for (const f of ['STRUCTURE.md', 'SCRIPT.md']) fs.copyFileSync(path.join(ROOT, 'tests/fixtures/ai-critical', f), path.join(d, 'Storyboard', f));
+  const d = project({empty: true, wps: 2.4}); edit(path.join(d, 'PROJECT.md'), 'target_duration: 30', 'target_duration: 38');
+  for (const f of ['STRUCTURE.md', 'SCRIPT.md', 'CLAIMS.md']) fs.copyFileSync(path.join(ROOT, 'tests/fixtures/ai-critical', f), path.join(d, 'Storyboard', f));
   return d;
 }
 test('verify-reply accepts the owner\'s clean format and rejects every bad output the owner pasted', () => {
@@ -339,4 +341,17 @@ test('verify-reply: a bare block works, a misspelled tag and a missing block fai
   fs.writeFileSync(f, '[curoius] Tau nggak?\n\n[calm] Santai.\n'); const bad = run('verify-reply', '--format-only', f); assert.notEqual(bad.code, 0); assert.match(bad.out, /misspelled/);
   fs.writeFileSync(f, 'Hook: tau nggak?\nSantai saja.\n'); assert.match(run('verify-reply', '--format-only', f).out, /no VO script block/);
   fs.writeFileSync(f, '```\n[curious] Tau nggak?\nSanta saja.\n```\n'); assert.match(run('verify-reply', '--format-only', f).out, /one paragraph|line break/);
+});
+
+test('SCRIPT.md is exactly the tagged lines: anything else is an error, script-clean fixes it, and the file equals what goes to the TTS', () => {
+  const d = project(); const good = fs.readFileSync(SC(d), 'utf8');
+  assert.equal(run('check', 'script', d).code, 0);
+  for (const [what, dirty, re] of [['front matter', '---\nwps: 2\n---\n' + good, /front matter/], ['a comment', '<!-- note -->\n' + good, /a comment/], ['a heading', '# Script\n\n' + good, /a heading/], ['a table', good + '\n| claim | status | source |\n|---|---|---|\n| x | verified | y |\n', /a table/]]) {
+    fs.writeFileSync(SC(d), dirty); const r = run('check', 'script', d); assert.equal(r.code, 1, what); assert.match(r.out, re, what); assert.match(r.out, /script-clean/);
+  }
+  fs.writeFileSync(SC(d), '---\nwps: 2\n---\n# Script\n\n<!-- n -->\n' + good + '\n## Claims\n| claim | status | source |\n|---|---|---|\n| konsultasi | verified | owner |\n');
+  const c = run('script-clean', d); assert.equal(c.code, 0, c.out); assert.match(c.out, /1 claim row/);
+  assert.equal(fs.readFileSync(SC(d), 'utf8'), good.replace(/\s+$/, '') + '\n'); assert.match(fs.readFileSync(CL(d), 'utf8'), /\| konsultasi \| verified \| owner \|/);
+  assert.equal(run('check', 'script', d).code, 0);
+  run('vo-script', d); assert.equal(fs.readFileSync(path.join(d, 'Asset/agen/vo-script.txt'), 'utf8'), fs.readFileSync(SC(d), 'utf8'), 'the script file is byte-identical to the VO script');
 });

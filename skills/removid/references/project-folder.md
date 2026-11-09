@@ -7,7 +7,7 @@ One folder per video. It is the single source of truth: a new session, another a
 ├── PROJECT.md        front matter (type, size, fps, narration, voice, character, gates) + the user's brief + decisions + history
 ├── Reference/        the user's references (main guide), one <id>.analysis.md each, REFERENCES.md index
 ├── Raw-Footage/      footage projects only: the user's clips, SOURCES.md (codec, fps, keyframes)
-├── Storyboard/       STRUCTURE.md, SCRIPT.md, STORYBOARD.md, style.json (the chosen style), plan.json (generated: frames, style, emotions, transitions), *.submitted-<time>.md snapshots
+├── Storyboard/       STRUCTURE.md, SCRIPT.md (only the tagged lines), CLAIMS.md, STORYBOARD.md, style.json (the chosen style), plan.json (generated: frames, style, emotions, transitions), *.submitted-<time>.md snapshots
 ├── Asset/            owner/ (user files, untouched), agen/ (voice, vo.txt, vo-lines.json, vo-report.json, music), scenes/ (Remotion clips), ASSETS.md
 ├── Source/           remotion/ (the project), hyperframes/ (assembly)
 └── Result/           sample/ (10 s), v1/, v2/ ... each with the video and a _source.tgz of Source + Storyboard

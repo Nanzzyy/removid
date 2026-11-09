@@ -6,32 +6,21 @@ File: `Storyboard/SCRIPT.md`. Check: `project.mjs check script <proj>`. Gate 1 f
 
 ## Settle before writing
 
-The brief and `intake` (`intake.md`) already settled what can be asked; the **structure** (`structure.md`) already fixed the beats, their times, the one idea of each and its emotion. The script is that plan in words: every block sits inside one beat. What can be proven (numbers, clients, testimonials, offers, the domain) goes in `## Claims` first. A user-supplied script is the user's: keep every word, report the numbers, and offer a tightened version only as a separate suggestion.
+The brief and `intake` (`intake.md`) already settled what can be asked; the **structure** (`structure.md`) already fixed the beats, their times, the one idea of each and its emotion. The script is that plan in words: every block sits inside one beat. What can be proven (numbers, clients, testimonials, offers, the domain) goes in `Storyboard/CLAIMS.md` first. A user-supplied script is the user's: keep every word, report the numbers, and offer a tightened version only as a separate suggestion.
 
 ## Format: the script is only what is said
 
-```
----
-title: promo-umkm
-language: id-ID
-narration: yes            # no = the paragraphs are on-screen copy
-wps: 2.4                  # spoken words per second, speech only; replaced by the measured audio
-platform: Reels
-message: one sentence the viewer should remember
----
-# Script
+`Storyboard/SCRIPT.md` is exactly this, and nothing else (no front matter, comment, heading or table):
 
+```
 [curious] UMKM kamu sudah punya website?
 
 [serious] Usaha kecil sulit berkembang kalau terlihat kurang profesional.
 
 [excited, emphatic] Yuk, kunjungi prvtech.id, konsultasi gratis!
-
-## Claims
-| claim | status | source |
-|---|---|---|
-| prvtech.id | placeholder | domain not confirmed |
 ```
+
+The file is byte-for-byte what `vo-script` prints and what goes to any TTS. The claims table lives in `Storyboard/CLAIMS.md`; spoken words per second live in `PROJECT.md` (`new --wps 2.4`). `check script` errors on front matter, comments, headings or a table inside `SCRIPT.md`; `script-clean <project>` strips them and moves the claims to `CLAIMS.md`. `script-init <project>` writes the tagged skeleton from the structure.
 
 **There is no time anywhere in the script**: no `[00.0–03.0]`, no "(3–9s)", no stage label ("Tahap 1", "Hook:"), no "(zoom ke api)". Those are STRUCTURE.md (the time budget of each beat) and STORYBOARD.md (the exact seconds, what is on screen, the zooms). What is left is a file that a TTS or a microphone can receive exactly as it is, emotions included. `check script` rejects seconds, labels and directions in a project that has a structure, and says where they belong.
 
@@ -66,7 +55,7 @@ Short sentences, one breath each. A concrete noun and a verb beat an adjective. 
 
 ## Claims: no invented proof
 
-Every number, superlative, offer (free, discount, guarantee), "trusted by", testimonial, client and domain needs a row in `## Claims`:
+Every number, superlative, offer (free, discount, guarantee), "trusted by", testimonial, client and domain needs a row in `Storyboard/CLAIMS.md` (`| claim | status | source |`):
 
 - `verified` with a source, or `owner-confirmed` (the user said so), or `placeholder`.
 - A testimonial or customer count nobody supplied is a `placeholder`. It may appear in a sample if it is visibly marked, and it **blocks the full render** until the user replaces or confirms it. Never present an invented name, quote or figure as real.

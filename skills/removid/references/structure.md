@@ -31,7 +31,7 @@ Purposes: `hook setup problem solution demo proof story twist payoff cta outro`.
 - Every beat says concretely what it `shows`, has one `info` (a beat with two ideas is two beats), a known `source`, and, for narrated videos, an `emotion`.
 - Footage beats name the file and the part, and the part is at least as long as the beat. A file missing from `Raw-Footage/` is a warning until the user supplies it.
 - The number of beats matches the style's rhythm (a LANTANG video cuts every 1.2-3 s, STORYTELLER every 4-9 s): a warning when the average is far outside it.
-- A number, offer or domain in `info` needs a row in the script's `## Claims`.
+- A number, offer or domain in `info` needs a row in `Storyboard/CLAIMS.md`.
 - **Script ↔ structure**: every script block sits inside one beat; a beat that is spoken has at least one block (the hook and the call to action must); a block delivered in an emotion different from its beat's gets a warning.
 - **Storyboard ↔ structure**: a frame may split a beat but never straddle its boundary.
 

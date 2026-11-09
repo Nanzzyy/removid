@@ -205,7 +205,7 @@ function structureBeats(proj) {
 /** Printed by the first commands an agent runs, so the format is seen even when SKILL.md was skimmed. */
 const GATE1_CONTRACT = [
   'GATE 1 CONTRACT (what your chat message is, and what the script file is):',
-  '  - Storyboard/SCRIPT.md holds ONLY spoken words: one paragraph per spoken beat of STRUCTURE.md, each opening with an emotion tag, a blank line between.',
+  '  - Storyboard/SCRIPT.md holds ONLY spoken words (no front matter, heading, comment or table; claims go in CLAIMS.md): one paragraph per spoken beat of STRUCTURE.md, each opening with an emotion tag, a blank line between.',
   '    No seconds, no "Tahap 1"/"Hook:" labels, no (scene or zoom directions). Time budgets live in STRUCTURE.md; picture and camera live in STORYBOARD.md.',
   '  - Do not write the script or a plan in chat. Write the files, run `check script`, `submit script`, and paste the VO SCRIPT block the tool prints.',
   '  - Before you send that message, save it to a file and run `verify-reply <project> <file>`: it fails on a timed or labelled second script, an edited VO block, or a question about the audio path. Fix, then send.',
@@ -213,7 +213,34 @@ const GATE1_CONTRACT = [
 ].join('\n');
 const lineTag = (b, i) => (b.beatN ? `line ${i + 1} (beat ${b.beatN}, budget ${f2(b.start)}–${f2(b.end)} s)` : `block ${i + 1} [${f2(b.start)}–${f2(b.end)}] ${b.label}`);
 /** The script of a project, with each line's window taken from the structure. */
-function loadScript(proj) { return parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md')), structureBeats(proj)); }
+/** The rows of a claims table (`| claim | status | source |`), from any text. */
+function claimRows(text) {
+  const out = [];
+  for (const l of text.split('\n')) {
+    if (!l.trim().startsWith('|')) continue;
+    const c = l.trim().replace(/^\||\|$/g, '').split('|').map((x) => x.trim());
+    if (c.every((x) => /^[-: ]*$/.test(x)) || c[0].toLowerCase() === 'claim') continue;
+    out.push({claim: c[0].replace(/^["“]|["”]$/g, ''), status: (c[1] || '').toLowerCase(), source: c[2] || ''});
+  }
+  return out;
+}
+const claimsFile = (proj) => P(proj, 'Storyboard', 'CLAIMS.md');
+/** The script of a project: its lines from SCRIPT.md (which holds nothing else), the claims from CLAIMS.md (and from an older script's own table), the words-per-second from PROJECT.md. */
+function loadScript(proj) {
+  const sc = parseScript(read(P(proj, 'Storyboard', 'SCRIPT.md')), structureBeats(proj)); const d = loadProject(proj).data;
+  if (d.wps && sc.meta.wps === undefined) sc.meta = {...sc.meta, wps: d.wps};
+  if (exists(claimsFile(proj))) { const have = new Set(sc.claims.map((c) => c.claim.toLowerCase())); for (const c of claimRows(read(claimsFile(proj)))) if (!have.has(c.claim.toLowerCase())) sc.claims.push(c); }
+  return sc;
+}
+/** What a plain SCRIPT.md holds besides its lines. The file goes to a TTS as it is, so anything else is read aloud. */
+function scriptExtras(text) {
+  const x = [];
+  if (/^---\s*$/m.test(text.split('\n')[0] || '')) x.push('front matter');
+  if (/<!--/.test(text)) x.push('a comment');
+  if (/^#{1,6}\s/m.test(text)) x.push('a heading');
+  if (/^\s*\|/m.test(text)) x.push('a table');
+  return x;
+}
 const NUMBER_WORDS = 'satu|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh|sebelas|belas|puluh|ratus|ribu|juta|miliar|triliun|seratus|seribu|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|million|billion';
 const CLAIM_RE = new RegExp('(\\d+(?:[.,]\\d+)?\\s*%|\\d+|\\b(?:' + NUMBER_WORDS + ')\\b|' + String.raw`\bpuluhan\b|\bratusan\b|\bribuan\b|\bjutaan\b|\bterbaik\b|\bnomor\s*1\b|\bgaransi\b|\bdijamin\b|\bterpercaya\b|\bdipercaya\b|\bterbukti\b|\bgratis\b|\bdiskon\b|\bpromo\b|\bbest\b|\bleading\b|\bguarantee[d]?\b|\btrusted\b|\bfree\b` + ')', 'gi');
 const DOMAIN_RE = /\b[a-z0-9-]+\.(?:id|com|site|io|co|net|app|dev|org|ai)\b/gi;
@@ -236,6 +263,7 @@ function checkScript(proj) {
   if (plain) {
     // The script is only the lines. Its time budget comes from the beats of the structure, in order (or "## Beat N" above a line).
     if (!beats?.length) { E(exists(structFile(proj)) ? 'Storyboard/STRUCTURE.md has no valid beats: each script line takes its time budget from its beat' : 'Storyboard/STRUCTURE.md is missing: each script line takes its time budget from its beat, so write the structure first'); return {issues, rows: []}; }
+    { const extras = scriptExtras(read(file)); if (extras.length) E(`SCRIPT.md holds ${extras.join(', ')}. The file is exactly what goes to a TTS: only the tagged lines, a blank line between, nothing else (claims go in Storyboard/CLAIMS.md, time budgets in STRUCTURE.md). Run \`script-clean <project>\` to fix it.`); }
     const spoken = beats.filter((b) => b.vo !== 'none'); const explicit = blocks.every((b) => b.beat);
     if (!explicit && blocks.length !== spoken.length) { E(`the script has ${blocks.length} line(s) but STRUCTURE.md has ${spoken.length} spoken beat(s). Write one line per spoken beat, in order (or put "## Beat N" above a line; mark a beat "- vo: none" when nothing is said).`); return {issues, rows: []}; }
     const lost = blocks.map((b, i) => (b.mapped ? 0 : i + 1)).filter(Boolean); if (lost.length) { E(`line(s) ${lost.join(', ')} point to a beat that does not exist`); return {issues, rows: []}; }
@@ -249,7 +277,7 @@ function checkScript(proj) {
     E('the script contains seconds ("[00.0–03.0] HOOK"). Seconds belong to STRUCTURE.md (the time budget of each beat) and STORYBOARD.md. The script is only the lines, each opening with its emotion tag, so it goes to a TTS exactly as it is.');
   }
   if (!dur) E('script front matter needs duration');
-  if (String(meta.narration || '').toLowerCase() !== (talk ? 'yes' : 'no')) E(`script front matter narration must equal PROJECT.md narration (${talk ? 'yes' : 'no'})`);
+  if (meta.narration !== undefined && String(meta.narration).toLowerCase() !== (talk ? 'yes' : 'no')) E(`script front matter narration must equal PROJECT.md narration (${talk ? 'yes' : 'no'})`);
   const report = loadVoReport(proj); const rows = [];
   blocks.forEach((b, i) => {
     const tag = lineTag(b, i); const win = b.end - b.start;
@@ -781,6 +809,9 @@ function verifyReply(text, expected) {
   });
   return issues;
 }
+const CLAIMS_HEAD = (slug) => `# Claims: ${slug}\n\nEvery number, superlative, offer ("gratis"), testimonial and domain that the script or the screen states needs a row.\nstatus: verified | owner-confirmed | placeholder (a placeholder blocks the full render).\n\n| claim | status | source |\n|---|---|---|\n`;
+/** Create Storyboard/CLAIMS.md if the project has none (the claims live there, never in SCRIPT.md). */
+function ensureClaims(proj, data) { if (!exists(claimsFile(proj))) fs.writeFileSync(claimsFile(proj), CLAIMS_HEAD(data.project)); }
 const voScriptText = (blocks) => blocks.map((b) => b.rawText.replace(/\s+/g, ' ').trim()).join('\n\n') + '\n';
 /** Asset/agen/vo.txt (clean words, one line per block) and vo-lines.json (every engine's version of each line, from the emotion tags). `engine` also writes lines/lineN.txt. */
 function writeVoLines(proj, engine) {
@@ -824,9 +855,9 @@ const COMMANDS = {
     for (const d of folderList({type})) fs.mkdirSync(P(proj, d), {recursive: true});
     const dur = num(opt.duration) || 30; const sub = (s) => s.replace(/{{brand}}/g, brand).replace(/{{slug}}/g, slug).replace(/{{duration}}/g, dur).replace(/{{narration}}/g, narration).replace(/{{size}}/g, SIZES[format]).replace(/{{wps}}/g, DEFAULT_WPS);
     const put = (from, to) => fs.writeFileSync(P(proj, to), sub(read(path.join(TPL, from))));
-    put('STRUCTURE.md', 'Storyboard/STRUCTURE.md'); put('SCRIPT.md', 'Storyboard/SCRIPT.md'); put('STORYBOARD.md', 'Storyboard/STORYBOARD.md'); put('REFERENCES.md', 'Reference/REFERENCES.md'); put('ANALYSIS.md', 'Reference/_TEMPLATE.analysis.md'); put('ASSETS.md', 'Asset/ASSETS.md'); if (type === 'footage') put('SOURCES.md', 'Raw-Footage/SOURCES.md');
+    put('STRUCTURE.md', 'Storyboard/STRUCTURE.md'); put('SCRIPT.md', 'Storyboard/SCRIPT.md'); put('CLAIMS.md', 'Storyboard/CLAIMS.md'); put('STORYBOARD.md', 'Storyboard/STORYBOARD.md'); put('REFERENCES.md', 'Reference/REFERENCES.md'); put('ANALYSIS.md', 'Reference/_TEMPLATE.analysis.md'); put('ASSETS.md', 'Asset/ASSETS.md'); if (type === 'footage') put('SOURCES.md', 'Raw-Footage/SOURCES.md');
     const g = () => ({status: 'none', at: '', evidence: '', hash: ''});
-    const data = {project: slug, brand, title: slug, type, format, size: SIZES[format], fps: FPS, target_duration: dur, created: now(), stage: 'new', narration, voice: opt.voice || (narration === 'yes' ? 'undecided' : 'none'), character, style: sty ? sty.id : 'undecided', language: opt.language && opt.language !== true ? opt.language : 'id-ID', structure: 'yes', acc: {script: g(), storyboard: g(), sample: g(), final: g()}};
+    const data = {project: slug, brand, title: slug, type, format, size: SIZES[format], fps: FPS, target_duration: dur, created: now(), stage: 'new', narration, voice: opt.voice || (narration === 'yes' ? 'undecided' : 'none'), character, style: sty ? sty.id : 'undecided', language: opt.language && opt.language !== true ? opt.language : 'id-ID', structure: 'yes', ...(num(opt.wps) ? {wps: num(opt.wps)} : {}), acc: {script: g(), storyboard: g(), sample: g(), final: g()}};
     const body = `# ${slug}\n\n## Brief (the user's own words, do not paraphrase)\n> ${String(opt.brief).replace(/\n/g, '\n> ')}\n\n## Goal, audience, CTA\n-\n\n## Final decisions (do not reopen on revisions)\n-\n\n## History\n- ${now()} — project created (${type}, ${format} ${SIZES[format]}, ${dur}s, ${FPS} fps, narration ${narration})\n`;
     saveProject(proj, data, body);
     if (sty) fs.writeFileSync(P(proj, 'Storyboard', 'style.json'), JSON.stringify(sty, null, 1) + '\n');
@@ -983,6 +1014,17 @@ const COMMANDS = {
     if (x.fit && narrated(data)) out(`  character: ${x.fit}`);
     if (['storyboard'].some((g) => accState(proj, g, data) === 'stale')) out('  the storyboard approval is now stale (the style is part of what was approved); check, submit and ask again.');
   },
+  'script-clean'(pos, opt) {
+    const proj = findProject(pos[0], opt); const {data} = loadProject(proj); const file = P(proj, 'Storyboard', 'SCRIPT.md'); if (!exists(file)) die('Storyboard/SCRIPT.md is missing');
+    const sc = loadScript(proj); if (sc.format === 'timed') die('this script is in the old timed format ([00.0–03.0] LABEL): rewrite it as plain tagged lines (script-init) instead');
+    const lines = sc.blocks.filter((b) => b.text); if (!lines.length) die('the script has no lines');
+    const extras = scriptExtras(read(file));
+    ensureClaims(proj, data); const have = new Set(claimRows(read(claimsFile(proj))).map((c) => c.claim.toLowerCase()));
+    const add = sc.claims.filter((c) => !have.has(c.claim.toLowerCase()));
+    if (add.length) fs.appendFileSync(claimsFile(proj), add.map((c) => `| ${c.claim} | ${c.status} | ${c.source} |`).join('\n') + '\n');
+    fs.writeFileSync(file, voScriptText(lines)); logLine(proj, 'script cleaned: only the tagged lines remain; claims in CLAIMS.md');
+    out(`SCRIPT.md now holds only its ${lines.length} tagged line(s).${extras.length ? ` Removed: ${extras.join(', ')}.` : ' Nothing needed removing.'}${add.length ? ` ${add.length} claim row(s) moved to Storyboard/CLAIMS.md.` : ''}`);
+  },
   'script-init'(pos, opt) {
     const proj = findProject(pos[0], opt); const {data} = loadProject(proj); if (!narrated(data)) die('narration is off for this project: there is no spoken script (on-screen copy goes in the storyboard)');
     if (!exists(structFile(proj))) die('Storyboard/STRUCTURE.md is missing: write the beats first, the script expresses them');
@@ -992,9 +1034,9 @@ const COMMANDS = {
     if (filled && !opt.force) die('SCRIPT.md already has words; pass --force to start it over');
     const parsed = parseStructure(read(structFile(proj))); const kv = (b, k) => (b.kv.find(([x]) => x === k) || [, ''])[1];
     const paras = parsed.beats.filter((b) => kv(b, 'vo').toLowerCase() !== 'none').map((b) => `[${(kv(b, 'emotion').split(/[,\s]/)[0] || 'neutral').toLowerCase()}] TODO`);
-    const fm = cur.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/); const front = fm ? fm[0].replace(/\n?$/, '\n') : `---\ntitle: ${data.project}\nlanguage: ${data.language}\nnarration: yes\nwps: ${DEFAULT_WPS}\n---\n`;
-    fs.writeFileSync(file, `${front}# Script: ${data.project}\n\n${paras.join('\n\n')}\n\n## Claims\n| claim | status | source |\n|---|---|---|\n`);
-    out(`wrote Storyboard/SCRIPT.md: ${paras.length} spoken beat(s), one tagged paragraph each, in the order of STRUCTURE.md.\nReplace every TODO with the words that beat says (the tag's emotion is the structure's; change it if the words need another). Nothing else goes in this file: no seconds, labels or directions.\nThen \`check script\`, \`submit script\`.`);
+    ensureClaims(proj, data);
+    fs.writeFileSync(file, paras.join('\n\n') + '\n');
+    out(`wrote Storyboard/SCRIPT.md: ${paras.length} spoken beat(s), one tagged paragraph each, in the order of STRUCTURE.md.\nReplace every TODO with the words that beat says (the tag's emotion is the structure's; change it if the words need another). Nothing else goes in this file (no seconds, labels, directions, headings or tables); numbers, offers and domains go in Storyboard/CLAIMS.md.\nThen \`check script\`, \`submit script\`.`);
     logLine(proj, 'script skeleton written from the structure');
   },
   'vo-lines'(pos, opt) {

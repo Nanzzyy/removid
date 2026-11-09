@@ -24,11 +24,11 @@ const run = (...args) => { const r = spawnSync('node', [PM, ...args], {encoding:
 let n = 0;
 function project(opts = {}) {
   const root = path.join(tmp, 'root' + n++);
-  const a = ['new', 'PrvTech', 'promo-umkm', '--root', root, '--format', 'landscape', '--duration', '30', '--narration', opts.narration || 'yes', '--voice', 'cowok', '--character', opts.narration === 'no' ? 'none' : 'ayu', '--brief', 'brief in the user words'];
+  const a = ['new', 'PrvTech', 'promo-umkm', '--root', root, '--format', 'landscape', '--duration', '30', '--wps', '2', '--narration', opts.narration || 'yes', '--voice', 'cowok', '--character', opts.narration === 'no' ? 'none' : 'ayu', '--brief', 'brief in the user words'];
   if (opts.style !== null) a.push('--style', opts.style || 'flatlife');
   const r = run(...a); assert.equal(r.code, 0, r.out);
   const dir = path.join(root, 'PrvTech', fs.readdirSync(path.join(root, 'PrvTech'))[0]);
-  for (const f of ['STRUCTURE.md', 'SCRIPT.md', 'STORYBOARD.md']) fs.copyFileSync(path.join(FIX, f), path.join(dir, 'Storyboard', f));
+  for (const f of ['STRUCTURE.md', 'SCRIPT.md', 'CLAIMS.md', 'STORYBOARD.md']) fs.copyFileSync(path.join(FIX, f), path.join(dir, 'Storyboard', f));
   return dir;
 }
 const edit = (file, from, to) => { const t = fs.readFileSync(file, 'utf8'); assert.ok(t.includes(from), `fixture no longer contains: ${from}`); fs.writeFileSync(file, t.replace(from, to)); };
@@ -344,8 +344,8 @@ test('the style library in source-material mirrors styles.json, and no tracked p
 // ---------- the clean voice script, compound tags, cutting a recording, the storyboard in words ----------
 const AI = path.join(ROOT, 'tests/fixtures/ai-critical');
 function aiProject() {
-  const root = path.join(tmp, 'ai' + n++); const r = run('new', 'Edu', 'ai-kritis', '--root', root, '--format', 'portrait', '--duration', '38', '--narration', 'yes', '--character', 'ayu', '--style', 'flatlife', '--brief', 'x'); assert.equal(r.code, 0, r.out);
-  const d = path.join(root, 'Edu', fs.readdirSync(path.join(root, 'Edu'))[0]); for (const f of ['STRUCTURE.md', 'SCRIPT.md']) fs.copyFileSync(path.join(AI, f), path.join(d, 'Storyboard', f)); return d;
+  const root = path.join(tmp, 'ai' + n++); const r = run('new', 'Edu', 'ai-kritis', '--root', root, '--format', 'portrait', '--duration', '38', '--wps', '2.4', '--narration', 'yes', '--character', 'ayu', '--style', 'flatlife', '--brief', 'x'); assert.equal(r.code, 0, r.out);
+  const d = path.join(root, 'Edu', fs.readdirSync(path.join(root, 'Edu'))[0]); for (const f of ['STRUCTURE.md', 'SCRIPT.md', 'CLAIMS.md']) fs.copyFileSync(path.join(AI, f), path.join(d, 'Storyboard', f)); return d;
 }
 test('the owner\'s own script, with compound tags like [thoughtful, slower], passes and comes out as a clean voice script', () => {
   const d = aiProject(); const c = run('check', 'script', d); assert.equal(c.code, 0, c.out); assert.match(c.out, /thoughtful\+slower/); assert.match(c.out, /calm\+reassuring/); assert.match(c.out, /serious\+emphatic/);
@@ -467,7 +467,7 @@ test('SKILL.md starts with the rules whose absence produced the wrong flow in a 
 
 // ---------- the script has no seconds ----------
 test('the script holds only what is said: no seconds, labels or directions, and it goes to a TTS as it is', () => {
-  const body = (d) => fs.readFileSync(SC(d), 'utf8').split('## Claims')[0].replace(/^---[\s\S]*?---\n/, '');
+  const body = (d) => fs.readFileSync(SC(d), 'utf8');
   for (const proj of [project(), aiProject()]) { const b = body(proj); assert.ok(!/\d\s*[–-]\s*\d|\bdetik\b|\d\s*s\b/.test(b.replace(/^# .*$/m, '')), 'no seconds in the shipped fixtures'); assert.ok(b.trim().split(/\n\s*\n/).every((p) => /^(#.*\n\n)?\[[a-z, ]+\] /.test(p.trim()) || /^# /.test(p.trim()))); }
   const m = (from, to, re) => { const d = project(); edit(SC(d), from, to); const r = run('check', 'script', d); assert.equal(r.code, 1, `${from} -> ${to}\n${r.out}`); assert.match(r.out, re); };
   m('[warm] UMKM kamu sudah punya website?', '[00.0–03.0] HOOK\n[warm] UMKM kamu sudah punya website?', /contains seconds .*Seconds belong to STRUCTURE\.md/);
@@ -488,6 +488,6 @@ test('the script holds only what is said: no seconds, labels or directions, and 
 });
 test('a new project\'s SCRIPT.md template is the plain format', () => {
   const root = path.join(tmp, 'tpl' + n++); assert.equal(run('new', 'T', 'x', '--root', root, '--narration', 'yes', '--brief', 'x').code, 0); const d = path.join(root, 'T', fs.readdirSync(path.join(root, 'T'))[0]); const t = fs.readFileSync(path.join(d, 'Storyboard/SCRIPT.md'), 'utf8');
-  assert.ok(!/\[\d\d\.\d/.test(t) && !/^duration:/m.test(t), 'no seconds in the template'); assert.match(t, /THE SCRIPT IS ONLY WHAT IS SAID/); assert.match(t, /^\[curious\] TODO$/m);
+  assert.ok(!/\[\d\d\.\d/.test(t) && !/^duration:/m.test(t), 'no seconds in the template'); assert.equal(t, '[curious] TODO\n', 'the template is one tagged line and nothing else'); assert.ok(fs.existsSync(path.join(d, 'Storyboard/CLAIMS.md')));
   const r = run('check', 'script', d); assert.equal(r.code, 1); assert.match(r.out, /placeholder or empty|TODO/);
 });

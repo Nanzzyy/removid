@@ -2,6 +2,9 @@
 
 `node skills/removid/scripts/project.mjs version` prints the version the agent is actually running, and whether it is behind `origin/main`.
 
+## 0.10.0
+- **`SCRIPT.md` is exactly the tagged lines** and nothing else: no front matter, comment, heading or table, so the file itself (not only the block the tool prints) can go to any TTS. Claims moved to `Storyboard/CLAIMS.md`, words-per-second to `PROJECT.md` (`new --wps`). `check script` errors on anything else; `script-clean <project>` fixes a 0.8/0.9 script. Test: the file is byte-identical to `vo-script`.
+
 ## 0.9.0
 - `verify-reply <project> <message-file|->` checks the message an agent is about to send: exactly one VO block of tagged lines, byte-identical to `SCRIPT.md`; no seconds, stage labels or directions in it; no second timed script ("0–3s ... \"narration\"", "Tahap 1: ...") anywhere else; no question about the audio path or length. `--format-only` does the format part outside a project. Fixtures are the real bad outputs the owner pasted.
 - The Gate 1 contract and `SKILL.md` tell the agent to run it before sending, and that the user's format wins whenever they ask for the script.
