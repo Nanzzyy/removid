@@ -33,7 +33,7 @@ A gate is a hard stop that a script enforces. Approval is **the user's own words
 | 1 Structure + script (narrated only) | `submit script` | `approve script --evidence "..."` | voice (`vo-lines`, `vo-place`) |
 | 2 Storyboard | `submit storyboard` (needs measured audio, or `--estimate "user's reason"`) | `approve storyboard --evidence "..."` | `gate build`, `scaffold`, Remotion |
 | 3 Sample (10 s, draft) | `render --start 0 --end 10 --quality draft` into `Result/sample/` | `approve sample --evidence "..."` | `gate full` |
-| 4 Final | render into `Result/vN/` | `approve final --evidence "..."` | `gate deliver` |
+| 4 Final | render into `Result/vN/` | `approve final --evidence "..."` | `gate deliver` (also refuses a video without audio) |
 
 - `submit` runs the checks first and refuses on any error; it snapshots the file and records its hash.
 - Approvals are bound to hashes. Change a spoken word, a time or an emotion tag in SCRIPT.md, anything in STRUCTURE.md, or anything in STORYBOARD.md (the style too), and that gate (and every gate after it) shows `stale` and must be submitted and approved again. Changing a claim's status in `## Claims` does not.
