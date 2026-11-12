@@ -59,7 +59,15 @@ for (const [name, filter] of [['freeze', `color=c=red:s=270x480:r=60:d=${plan.to
 const quiet = path.join(app, 'out/quiet.mp4');
 run(ffmpeg, ['-y', '-loglevel', 'error', '-i', movie, '-c:v', 'copy', '-af', 'volume=0.1', '-c:a', 'aac', '-b:a', '256k', quiet]);
 assert.match(qa(quiet, 'quiet'), /FAIL loudness/);
-// A failed external ffmpeg must fail closed instead of reporting an empty measurement.
-const broken = spawnSync('bash', [path.join(kit, 'scripts/qa.sh'), movie, '60', path.join(app, 'out/qa-tool-fail')], {env: {...process.env, REMOVID_FFMPEG: '/bin/false'}, encoding: 'utf8'});
+// A failed external ffmpeg must fail closed. Prove it per step: this ffmpeg fails ONLY the loudness measurement, so the failure
+// must be reported there, not at a later step such as the contact sheet.
+const noLoudness = path.join(app, 'out/ffmpeg-no-ebur128.sh');
+fs.writeFileSync(noLoudness, `#!/bin/sh\ncase "$*" in *ebur128*) exit 1;; esac\nexec "${ffmpeg}" "$@"\n`, {mode: 0o755});
+const broken = spawnSync('bash', [path.join(kit, 'scripts/qa.sh'), movie, '60', path.join(app, 'out/qa-tool-fail')], {env: {...process.env, REMOVID_FFMPEG: noLoudness}, encoding: 'utf8'});
 assert.equal(broken.status, 1);
+assert.match(broken.stderr, /FAIL ffmpeg audio measurement/);
+assert.doesNotMatch(broken.stderr, /FAIL contact sheet/);
+// And with every ffmpeg call failing, QA still exits 1.
+const dead = spawnSync('bash', [path.join(kit, 'scripts/qa.sh'), movie, '60', path.join(app, 'out/qa-all-fail')], {env: {...process.env, REMOVID_FFMPEG: '/bin/false'}, encoding: 'utf8'});
+assert.equal(dead.status, 1);
 console.log('FAST: typecheck, 60 fps still/clips/timeline, generated audio and QA passed; fps/audio/freeze/black/loudness/tool mutants rejected');
