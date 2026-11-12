@@ -71,7 +71,7 @@ Existing project: run `scripts/project.mjs status <name or path>` and read its `
 5. **Storyboard** in `Storyboard/STORYBOARD.md`: frames (every beat boundary is a frame boundary), vo windows, text, cursor stops, zooms, narrator cues, transitions, assets, in numbers. `check storyboard` (checks the style, writes `plan.json` with frame counts, style and emotion segments), `submit storyboard`, **stop (Gate 2)**.
 6. `gate build`, `scaffold`, then **Remotion** builds the scenes from `plan.json` and `src/style.ts`: `npm run check`, stills (start, mid, end, each click, each zoom hold), `npm run check:cursor`, scene clips at 60 fps with handles, `probe-mp4.sh`.
 7. **HyperFrames** cuts and assembles the clips with the style's transitions, mixes audio (skipped only when the result is one Remotion scene with no cuts, footage or audio mixing): `sfx.mjs` for effects, `project.mjs assemble` for `index.html`, `check`. Render the 10 s sample (`--start 0 --end 10`), **stop (Gate 3)**.
-8. `gate full`, final render at `--fps 60`, `probe-mp4.sh` (size, fps, duration, loudness), look at six frames, listen on the player the user will use, **stop (Gate 4)**, then `gate deliver`.
+8. `gate full`, final render at `--fps 60`, `probe-mp4.sh --require-audio` (size, fps, duration, loudness; a video without sound fails), look at six frames, listen on the player the user will use, **stop (Gate 4)**, then `gate deliver`.
 
 Approval means the user's own words, passed to `approve --evidence "..."`. Changing the structure, the script (a word, a time, an emotion tag), the style or the storyboard after approval makes that gate and every later one stale. Revising one scene means re-rendering that clip only.
 

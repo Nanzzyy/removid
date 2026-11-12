@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# Assert a rendered video. Usage: probe-mp4.sh out.mp4 [WxH] [fps] [seconds]
+# Assert a rendered video. Usage: probe-mp4.sh out.mp4 [WxH] [fps] [seconds] [--require-audio]
+# --require-audio (anywhere in the arguments): exit 1 when the file has no audio stream. Use it on the final video (a video without sound is a defect);
+# leave it off for scene clips, which are rendered without audio on purpose.
 # Prints a summary; exits 1 on any mismatch so it can gate delivery. For a video with audio it also prints the integrated loudness
 # (target -14 LUFS +-2, true peak <= -1 dBFS) as FAIL/warn lines when ffmpeg has the ebur128 filter (FFMPEG=/path/to/full/ffmpeg).
 set -u
+require_audio=0; args=()
+for a in "$@"; do if [ "$a" = "--require-audio" ]; then require_audio=1; else args+=("$a"); fi; done
+set -- ${args[@]+"${args[@]}"}
 f="${1:-}"; want_size="${2:-}"; want_fps="${3:-}"; want_dur="${4:-}"
-[ -n "$f" ] || { echo "usage: $0 file.mp4 [WxH] [fps] [seconds]"; exit 2; }
+[ -n "$f" ] || { echo "usage: $0 file.mp4 [WxH] [fps] [seconds] [--require-audio]"; exit 2; }
 [ -s "$f" ] || { echo "FAIL: $f missing or empty"; exit 1; }
 command -v ffprobe >/dev/null || { echo "FAIL: ffprobe not found"; exit 1; }
 
@@ -21,6 +26,7 @@ rc=0
 fail() { echo "FAIL: $1"; rc=1; }
 close() { awk -v a="$1" -v b="$2" -v t="$3" 'BEGIN{d=a-b; if(d<0)d=-d; exit !(d<=t)}'; }
 
+[ "$require_audio" -eq 0 ] || [ -n "${audio:-}" ] || fail "no audio stream (a video without sound is a defect)"
 [ -z "$want_size" ] || [ "$want_size" = "${w}x${h}" ] || fail "size is ${w}x${h}, want $want_size"
 [ -z "$want_fps" ]  || close "$fps" "$want_fps" 0.05 || fail "fps is $fps, want $want_fps"
 [ -z "$want_dur" ]  || close "$dur" "$want_dur" 0.2  || fail "duration is ${dur}s, want ~${want_dur}s"

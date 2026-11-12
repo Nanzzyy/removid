@@ -2,6 +2,9 @@
 
 `node skills/removid/scripts/project.mjs version` prints the version the agent is actually running, and whether it is behind `origin/main`.
 
+## 0.11.1
+- `probe-mp4.sh --require-audio` (accepted anywhere in the arguments) exits 1 when the file has no audio stream; the final-video steps in `SKILL.md` and `fast/FAST.md` use it. Without the flag nothing changes, so scene clips (rendered without audio on purpose) still pass. Test: `tests/probe.test.mjs`.
+
 ## 0.11.0
 - Optional `fast/` kit for videos without narration up to 45 seconds (music and effects are always included; a video without sound is a defect): compact style selection, 36 motion recipes, ready Remotion scenes, timing from the approved frame plan, synthesized music/effects and strict video QA. Uses the existing intake, folder schema, approval gates and 60 fps pipeline; HyperFrames handles transitions and audio. Canonical style tokens remain in `styles/styles.json`.
 - `Storyboard/direction.json`, when present, participates in storyboard approval hashes. Changing it invalidates the storyboard, sample and final approvals. FAST rejects content absent from the storyboard's checked text windows.
