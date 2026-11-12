@@ -5,6 +5,8 @@
 set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 full=0; [ "${1:-}" = "--full" ] && full=1
+# Remotion rejects a concurrency above the core count.
+conc=2; [ "$(nproc 2>/dev/null || echo 1)" -ge 2 ] || conc=1
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 : > "$tmp/failures"
 step() { printf '\n== %s\n' "$1"; }
@@ -70,9 +72,9 @@ if [ "$full" -eq 1 ]; then
   step "stills at global times"
   ( cd "$tmp/app" && run node scripts/stills.mjs 1.0,5.0 --id UiDemo && run test -s out/stills/UiDemo-t5.00.png )
   step "render both scenes at 60 fps and probe"
-  ( cd "$tmp/app" && run npx remotion render src/index.ts UiDemo out/ui.mp4 --concurrency=2 \
+  ( cd "$tmp/app" && run npx remotion render src/index.ts UiDemo out/ui.mp4 --concurrency=$conc \
     && run bash "$root/skills/removid/scripts/probe-mp4.sh" out/ui.mp4 1920x1080 60 10 \
-    && run npx remotion render src/index.ts Narrator out/nar.mp4 --concurrency=2 \
+    && run npx remotion render src/index.ts Narrator out/nar.mp4 --concurrency=$conc \
     && run bash "$root/skills/removid/scripts/probe-mp4.sh" out/nar.mp4 1920x1080 60 11 )
 fi
 
