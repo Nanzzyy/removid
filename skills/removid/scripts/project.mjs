@@ -697,6 +697,19 @@ function accState(proj, gate, data) {
 }
 function placeholders(proj) { return exists(P(proj, 'Storyboard', 'SCRIPT.md')) ? loadScript(proj).claims.filter((c) => c.status === 'placeholder') : []; }
 const hasMp4 = (d) => exists(d) && fs.readdirSync(d).some((f) => /\.(mp4|webm|mov|gif)$/i.test(f));
+// A video without sound is a defect: every video in the latest Result/vN must carry an audio stream (a gif cannot, so it is exempt).
+function silentFinals(proj) {
+  const r = P(proj, 'Result');
+  const latest = exists(r) ? fs.readdirSync(r).filter((d) => /^v\d+$/.test(d) && hasMp4(P(r, d))).sort((a, b) => Number(b.slice(1)) - Number(a.slice(1)))[0] : null;
+  if (!latest) return [];
+  const bad = [];
+  for (const f of fs.readdirSync(P(r, latest)).filter((x) => /\.(mp4|webm|mov)$/i.test(x))) {
+    const pr = spawnSync(ffbin('ffprobe'), ['-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', P(r, latest, f)], {encoding: 'utf8'});
+    if (pr.error || pr.status !== 0) bad.push(`Result/${latest}/${f} could not be probed for audio (${pr.error ? 'ffprobe not found' : 'unreadable video'})`);
+    else if (!pr.stdout.trim()) bad.push(`Result/${latest}/${f} has no audio stream (a video without sound is a defect)`);
+  }
+  return bad;
+}
 function gate(proj, action) {
   const {data} = loadProject(proj); const talk = narrated(data); const why = [];
   const need = (g, label) => { const s = accState(proj, g, data); if (s !== 'approved') why.push(`${label} is ${s === 'none' ? 'not approved yet' : s === 'stale' ? 'STALE (the file changed after it was approved or submitted)' : 'waiting for the user'}`); };
@@ -708,7 +721,7 @@ function gate(proj, action) {
   }
   if (['full', 'deliver'].includes(action)) { need('sample', 'Gate 3 (sample)'); if (!hasMp4(P(proj, 'Result', 'sample'))) why.push('Result/sample has no video'); }
   if (action === 'full') { const ph = placeholders(proj); if (ph.length) why.push(`placeholder claims remain: ${ph.map((c) => '"' + c.claim + '"').join(', ')}. Replace them or get them confirmed, then update ## Claims.`); }
-  if (action === 'deliver') { need('final', 'Gate 4 (final)'); const ph = placeholders(proj); if (ph.length) why.push(`placeholder claims remain: ${ph.map((c) => '"' + c.claim + '"').join(', ')}`); }
+  if (action === 'deliver') { need('final', 'Gate 4 (final)'); why.push(...silentFinals(proj)); const ph = placeholders(proj); if (ph.length) why.push(`placeholder claims remain: ${ph.map((c) => '"' + c.claim + '"').join(', ')}`); }
   return why;
 }
 

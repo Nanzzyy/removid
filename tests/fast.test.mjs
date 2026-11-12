@@ -100,7 +100,18 @@ test('revised direction invalidates approved samples and finals, and stale audio
   }
   ok(projectRun('approve', 'sample', p, '--evidence', 'test sample approval'));
   ok(projectRun('approve', 'final', p, '--evidence', 'test final approval'));
-  ok(projectRun('gate', 'deliver', p));
+  // The final must be a real video with sound: a text file is unreadable and a video without audio is a defect.
+  const unreadable = projectRun('gate', 'deliver', p);
+  assert.notEqual(unreadable.code, 0); assert.match(unreadable.out, /could not be probed for audio/);
+  const final = path.join(p, 'Result/v1/fixture.mp4');
+  const video = ['-f', 'lavfi', '-i', 'nullsrc=s=160x90:r=30:d=1'], sine = ['-f', 'lavfi', '-i', 'sine=frequency=440:d=1'], enc = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p'];
+  const make = (...a) => spawnSync('ffmpeg', ['-y', '-loglevel', 'error', ...a, final]).status === 0;
+  if (make(...video, ...enc)) {
+    const silent = projectRun('gate', 'deliver', p);
+    assert.notEqual(silent.code, 0); assert.match(silent.out, /has no audio stream/);
+    assert.ok(make(...video, ...sine, ...enc, '-c:a', 'aac', '-shortest'));
+    ok(projectRun('gate', 'deliver', p));
+  }
   changeDirection(p, (d) => { d.title = 'Revised'; });
   for (const gate of ['build', 'sample', 'full', 'deliver']) {
     const r = projectRun('gate', gate, p);

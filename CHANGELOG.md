@@ -2,6 +2,9 @@
 
 `node skills/removid/scripts/project.mjs version` prints the version the agent is actually running, and whether it is behind `origin/main`.
 
+## 0.11.2
+- `gate deliver` refuses a final with no sound: every mp4/webm/mov in the latest `Result/vN` must have an audio stream (a gif is exempt), and an unreadable file or a missing ffprobe also refuses. Test: `tests/fast.test.mjs` (a text file and a video without audio are rejected; one with audio passes; the check removed makes the test fail).
+
 ## 0.11.1
 - `probe-mp4.sh --require-audio` (accepted anywhere in the arguments) exits 1 when the file has no audio stream; the final-video steps in `SKILL.md` and `fast/FAST.md` use it. Without the flag nothing changes, so scene clips (rendered without audio on purpose) still pass. Test: `tests/probe.test.mjs`.
 
