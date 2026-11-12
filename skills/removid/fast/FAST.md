@@ -50,7 +50,7 @@ bash "$F/scripts/audio.sh" "$P"
 
 HyperFrames memotong klip, menerapkan transisi storyboard, dan mencampur audio: ikuti `references/handoff.md`, `project.mjs assemble`, lalu `hyperframes check`. Kit tidak menerapkan transisi kedua di Remotion.
 
-Render sample 10 detik pada 60 fps ke `Result/sample`, **Gate 3**. Setelah sample disetujui, `project.mjs gate full`, render final pada 60 fps ke `Result/vN`. Jalankan `probe-mp4.sh` dan, bila audio dipakai:
+Render sample 10 detik pada 60 fps ke `Result/sample`, **Gate 3**. Setelah sample disetujui, `project.mjs gate full`, render final pada 60 fps ke `Result/vN`. Jalankan `probe-mp4.sh --require-audio` (video tanpa suara gagal) dan:
 ```bash
 bash "$F/scripts/qa.sh" "$P/Result/v1/video.mp4" 60 "$P/Result/v1/qa" 1080x1920 20
 ```
