@@ -22,6 +22,10 @@ test('probe-mp4 --require-audio fails a video with no audio stream and passes on
   const strict = run('--require-audio', silent, '160x90', '30');
   assert.equal(strict.code, 1, strict.out);
   assert.match(strict.out, /no audio stream/);
+  const after = run(silent, '160x90', '30', '--require-audio');      // the flag works in any position
+  assert.equal(after.code, 1, after.out);
+  assert.match(after.out, /no audio stream/);
+  assert.doesNotMatch(after.out, /size is/);
   const ok = run('--require-audio', sound, '160x90', '30');
   assert.equal(ok.code, 0, ok.out);
 });
