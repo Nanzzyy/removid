@@ -1,0 +1,794 @@
+{
+ "voxelverse": {
+  "text": "pop",
+  "bg": "dots",
+  "sfx": "pop",
+  "music": "cheer",
+  "font": {
+   "head": "baloo-2@700",
+   "body": "poppins@600"
+  },
+  "cam": "drift",
+  "kw": [
+   "minecraft",
+   "blok",
+   "kubus",
+   "voxel",
+   "lucu",
+   "cute",
+   "kids",
+   "game"
+  ]
+ },
+ "pixelstory": {
+  "text": "type",
+  "bg": "grid",
+  "sfx": "pop",
+  "music": "cheer",
+  "font": {
+   "head": "press-start-2p@400",
+   "body": "poppins@600"
+  },
+  "cam": "still",
+  "kw": [
+   "pixel",
+   "8-bit",
+   "retro",
+   "game",
+   "arcade",
+   "nostalgia"
+  ]
+ },
+ "paperworld": {
+  "text": "fade-rise",
+  "bg": "paper",
+  "sfx": "paper",
+  "music": "warm",
+  "font": {
+   "head": "fraunces@700",
+   "body": "poppins@600"
+  },
+  "cam": "drift",
+  "kw": [
+   "kertas",
+   "paper",
+   "cutout",
+   "storybook",
+   "diorama",
+   "dongeng"
+  ]
+ },
+ "worldforge": {
+  "text": "fade-rise",
+  "bg": "flat",
+  "sfx": "cinema",
+  "music": "epic",
+  "font": {
+   "head": "poppins@800",
+   "body": "poppins@600"
+  },
+  "cam": "push",
+  "kw": [
+   "dunia",
+   "world",
+   "peradaban",
+   "civilization",
+   "simulasi",
+   "kota",
+   "sejarah"
+  ]
+ },
+ "timeforge": {
+  "text": "mask-rise",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "tech",
+  "font": {
+   "head": "space-grotesk@700",
+   "body": "inter@500"
+  },
+  "cam": "push",
+  "kw": [
+   "evolusi",
+   "evolution",
+   "timeline",
+   "linimasa",
+   "perkembangan",
+   "dulu",
+   "sekarang"
+  ]
+ },
+ "buildforge": {
+  "text": "mask-rise",
+  "bg": "grid",
+  "sfx": "ui",
+  "music": "chill",
+  "font": {
+   "head": "poppins@700",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "bangunan",
+   "rumah",
+   "proyek",
+   "konstruksi",
+   "build",
+   "house",
+   "interior",
+   "desain"
+  ]
+ },
+ "precision": {
+  "text": "mask-rise",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "tech",
+  "font": {
+   "head": "space-grotesk@700",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "produk",
+   "premium",
+   "gadget",
+   "exploded",
+   "komponen",
+   "showcase",
+   "hardware"
+  ]
+ },
+ "innerworks": {
+  "text": "mask-rise",
+  "bg": "grid",
+  "sfx": "ui",
+  "music": "tech",
+  "font": {
+   "head": "space-grotesk@700",
+   "body": "ibm-plex-mono@500"
+  },
+  "cam": "push",
+  "kw": [
+   "cara",
+   "kerja",
+   "how",
+   "it",
+   "works",
+   "mesin",
+   "mekanisme",
+   "cutaway",
+   "cross-section"
+  ]
+ },
+ "characterflow": {
+  "text": "fade-rise",
+  "bg": "flat",
+  "sfx": "cinema",
+  "music": "dramatic",
+  "font": {
+   "head": "fraunces@700",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "emosi",
+   "perasaan",
+   "pikiran",
+   "karakter",
+   "mental",
+   "health",
+   "stres",
+   "cemas"
+  ]
+ },
+ "cinestory": {
+  "text": "fade-rise",
+  "bg": "flat",
+  "sfx": "cinema",
+  "music": "dramatic",
+  "font": {
+   "head": "playfair-display@700",
+   "body": "inter@500"
+  },
+  "cam": "push",
+  "kw": [
+   "sinematik",
+   "cinematic",
+   "film",
+   "drama",
+   "brand",
+   "film",
+   "trailer"
+  ]
+ },
+ "panelverse": {
+  "text": "pop",
+  "bg": "dots",
+  "sfx": "pop",
+  "music": "cheer",
+  "font": {
+   "head": "bangers@400",
+   "body": "poppins@600"
+  },
+  "cam": "still",
+  "kw": [
+   "komik",
+   "comic",
+   "panel",
+   "humor",
+   "lucu",
+   "strip",
+   "webtoon"
+  ]
+ },
+ "zack-facts-inspired": {
+  "text": "slam",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "energetic",
+  "font": {
+   "head": "poppins@900",
+   "body": "poppins@600"
+  },
+  "cam": "punch",
+  "kw": [
+   "kenapa",
+   "why",
+   "fakta",
+   "fun",
+   "fact",
+   "sains",
+   "science",
+   "cepat",
+   "pembuktian"
+  ]
+ },
+ "clay-3d": {
+  "text": "drop",
+  "bg": "flat",
+  "sfx": "pop",
+  "music": "cheer",
+  "font": {
+   "head": "baloo-2@800",
+   "body": "poppins@600"
+  },
+  "cam": "drift",
+  "kw": [
+   "clay",
+   "plastisin",
+   "claymation",
+   "lucu",
+   "ramah",
+   "edukasi",
+   "anak"
+  ]
+ },
+ "midnight": {
+  "text": "mask-rise",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "tech",
+  "font": {
+   "head": "poppins@800",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "dark",
+   "gelap",
+   "startup",
+   "bisnis",
+   "business",
+   "data",
+   "dashboard",
+   "saas",
+   "laporan",
+   "fintech",
+   "bank",
+   "pembayaran",
+   "payment",
+   "finansial",
+   "investasi",
+   "kuartal"
+  ]
+ },
+ "miniatur": {
+  "text": "pop",
+  "bg": "flat",
+  "sfx": "pop",
+  "music": "chill",
+  "font": {
+   "head": "poppins@800",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "isometric",
+   "miniatur",
+   "diorama",
+   "fenomena",
+   "sosial",
+   "ekonomi",
+   "kota"
+  ]
+ },
+ "arsip": {
+  "text": "stamp",
+  "bg": "paper",
+  "sfx": "paper",
+  "music": "dramatic",
+  "font": {
+   "head": "playfair-display@700",
+   "body": "special-elite@400"
+  },
+  "cam": "drift",
+  "kw": [
+   "investigasi",
+   "arsip",
+   "dokumen",
+   "bukti",
+   "kronologi",
+   "kasus",
+   "misteri"
+  ]
+ },
+ "blueprint": {
+  "text": "type",
+  "bg": "grid",
+  "sfx": "type",
+  "music": "tech",
+  "font": {
+   "head": "space-mono@700",
+   "body": "space-mono@400"
+  },
+  "cam": "push",
+  "kw": [
+   "blueprint",
+   "teknik",
+   "diagram",
+   "arsitektur",
+   "sistem",
+   "engineering",
+   "software",
+   "architecture",
+   "enkripsi",
+   "api",
+   "backend",
+   "server"
+  ]
+ },
+ "sketsa": {
+  "text": "fade-rise",
+  "bg": "paper",
+  "sfx": "paper",
+  "music": "chill",
+  "font": {
+   "head": "caveat@700",
+   "body": "poppins@500"
+  },
+  "cam": "still",
+  "kw": [
+   "sketsa",
+   "coretan",
+   "tangan",
+   "handwritten",
+   "psikologi",
+   "tips",
+   "kebiasaan",
+   "habit",
+   "belajar"
+  ]
+ },
+ "hikayat": {
+  "text": "fade-rise",
+  "bg": "paper",
+  "sfx": "cinema",
+  "music": "dramatic",
+  "font": {
+   "head": "cinzel@700",
+   "body": "poppins@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "wayang",
+   "legenda",
+   "folklor",
+   "budaya",
+   "tradisi",
+   "siluet",
+   "nusantara",
+   "cerita",
+   "rakyat"
+  ]
+ },
+ "geometrik": {
+  "text": "stamp",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "energetic",
+  "font": {
+   "head": "archivo-black@400",
+   "body": "inter@600"
+  },
+  "cam": "still",
+  "kw": [
+   "angka",
+   "number",
+   "statistik",
+   "keuangan",
+   "finansial",
+   "bentuk",
+   "geometri",
+   "persentase",
+   "bank",
+   "saham",
+   "pajak",
+   "anggaran"
+  ]
+ },
+ "terminal": {
+  "text": "type",
+  "bg": "scan",
+  "sfx": "type",
+  "music": "tech",
+  "font": {
+   "head": "jetbrains-mono@700",
+   "body": "jetbrains-mono@500"
+  },
+  "cam": "still",
+  "kw": [
+   "terminal",
+   "hacker",
+   "coding",
+   "cli",
+   "keamanan",
+   "cyber",
+   "security",
+   "developer",
+   "programmer"
+  ]
+ },
+ "lantang": {
+  "text": "slam",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "energetic",
+  "font": {
+   "head": "anton@400",
+   "body": "inter@600"
+  },
+  "cam": "punch",
+  "kw": [
+   "statement",
+   "pernyataan",
+   "tegas",
+   "opini",
+   "kampanye",
+   "motivasi",
+   "manifesto"
+  ]
+ },
+ "flatlife": {
+  "text": "pop",
+  "bg": "flat",
+  "sfx": "pop",
+  "music": "cheer",
+  "font": {
+   "head": "poppins@800",
+   "body": "poppins@600"
+  },
+  "cam": "drift",
+  "kw": [
+   "umum",
+   "general",
+   "promo",
+   "produk",
+   "layanan",
+   "umkm",
+   "ramah",
+   "friendly",
+   "explainer",
+   "toko",
+   "cafe",
+   "kopi",
+   "kuliner",
+   "skincare",
+   "kosmetik",
+   "fashion",
+   "jualan",
+   "bisnis",
+   "kecil",
+   "lokal"
+  ]
+ },
+ "cair": {
+  "text": "drop",
+  "bg": "flat",
+  "sfx": "pop",
+  "music": "chill",
+  "font": {
+   "head": "baloo-2@800",
+   "body": "poppins@600"
+  },
+  "cam": "drift",
+  "kw": [
+   "liquid",
+   "cair",
+   "gummy",
+   "kreatif",
+   "musik",
+   "lifestyle",
+   "anak",
+   "muda",
+   "gen",
+   "z",
+   "playful"
+  ]
+ },
+ "peta": {
+  "text": "mask-rise",
+  "bg": "dots",
+  "sfx": "ui",
+  "music": "chill",
+  "font": {
+   "head": "poppins@700",
+   "body": "inter@500"
+  },
+  "cam": "push",
+  "kw": [
+   "peta",
+   "map",
+   "rute",
+   "route",
+   "wilayah",
+   "negara",
+   "geografi",
+   "perjalanan",
+   "travel",
+   "lokasi"
+  ]
+ },
+ "kliping": {
+  "text": "stamp",
+  "bg": "paper",
+  "sfx": "paper",
+  "music": "energetic",
+  "font": {
+   "head": "anton@400",
+   "body": "special-elite@400"
+  },
+  "cam": "still",
+  "kw": [
+   "koran",
+   "newspaper",
+   "kliping",
+   "scrapbook",
+   "berita",
+   "tren",
+   "viral",
+   "budaya",
+   "pop",
+   "collage"
+  ]
+ },
+ "creator-pop": {
+  "text": "pop",
+  "bg": "flat",
+  "sfx": "pop",
+  "music": "cheer",
+  "font": {
+   "head": "poppins@900",
+   "body": "poppins@600"
+  },
+  "cam": "punch",
+  "kw": [
+   "creator",
+   "review",
+   "perbandingan",
+   "versus",
+   "vs",
+   "vlog",
+   "youtuber",
+   "tips",
+   "seru",
+   "unboxing",
+   "rekomendasi"
+  ]
+ },
+ "depth": {
+  "text": "mask-rise",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "chill",
+  "font": {
+   "head": "anton@400",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "depth",
+   "talking",
+   "head",
+   "podcast",
+   "pembicara",
+   "personal",
+   "branding",
+   "teks",
+   "di",
+   "belakang"
+  ]
+ },
+ "editorial": {
+  "text": "fade-rise",
+  "bg": "flat",
+  "sfx": "paper",
+  "music": "chill",
+  "font": {
+   "head": "playfair-display@700",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "editorial",
+   "majalah",
+   "magazine",
+   "interview",
+   "profil",
+   "edukasi",
+   "elegan"
+  ]
+ },
+ "impact": {
+  "text": "slam",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "energetic",
+  "font": {
+   "head": "anton@400",
+   "body": "inter@600"
+  },
+  "cam": "punch",
+  "kw": [
+   "hook",
+   "klaim",
+   "short",
+   "tiktok",
+   "reels",
+   "kata",
+   "kunci",
+   "keyword",
+   "energi",
+   "besar"
+  ]
+ },
+ "lumen": {
+  "text": "fade-rise",
+  "bg": "flat",
+  "sfx": "cinema",
+  "music": "chill",
+  "font": {
+   "head": "playfair-display@700",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "glow",
+   "cahaya",
+   "inspirasi",
+   "estetik",
+   "aesthetic",
+   "wellness",
+   "motivasi",
+   "hangat"
+  ]
+ },
+ "mograph-mix": {
+  "text": "mask-rise",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "tech",
+  "font": {
+   "head": "space-grotesk@700",
+   "body": "inter@500"
+  },
+  "cam": "push",
+  "kw": [
+   "saas",
+   "app",
+   "aplikasi",
+   "produk",
+   "digital",
+   "ui",
+   "icon",
+   "vektor",
+   "footage",
+   "mix"
+  ]
+ },
+ "noted": {
+  "text": "fade-rise",
+  "bg": "paper",
+  "sfx": "paper",
+  "music": "chill",
+  "font": {
+   "head": "caveat@700",
+   "body": "inter@500"
+  },
+  "cam": "still",
+  "kw": [
+   "catatan",
+   "notes",
+   "belajar",
+   "rangkuman",
+   "meeting",
+   "study",
+   "stabilo",
+   "highlight"
+  ]
+ },
+ "poster": {
+  "text": "slam",
+  "bg": "flat",
+  "sfx": "ui",
+  "music": "energetic",
+  "font": {
+   "head": "anton@400",
+   "body": "archivo-black@400"
+  },
+  "cam": "punch",
+  "kw": [
+   "poster",
+   "event",
+   "pengumuman",
+   "konser",
+   "festival",
+   "tipografi",
+   "besar",
+   "launching"
+  ]
+ },
+ "storyteller": {
+  "text": "fade-rise",
+  "bg": "flat",
+  "sfx": "cinema",
+  "music": "dramatic",
+  "font": {
+   "head": "playfair-display@700",
+   "body": "inter@500"
+  },
+  "cam": "drift",
+  "kw": [
+   "cerita",
+   "pribadi",
+   "testimoni",
+   "dokumenter",
+   "emosional",
+   "story",
+   "personal",
+   "haru"
+  ]
+ },
+ "system": {
+  "text": "mask-rise",
+  "bg": "grid",
+  "sfx": "ui",
+  "music": "tech",
+  "font": {
+   "head": "space-grotesk@700",
+   "body": "jetbrains-mono@500"
+  },
+  "cam": "still",
+  "kw": [
+   "system",
+   "minimal",
+   "techno",
+   "pill",
+   "label",
+   "produktivitas",
+   "tutorial",
+   "tips",
+   "tech"
+  ]
+ }
+}

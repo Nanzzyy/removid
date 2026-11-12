@@ -5,14 +5,16 @@
 set -uo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 full=0; [ "${1:-}" = "--full" ] && full=1
+# Remotion rejects a concurrency above the core count.
+conc=2; [ "$(nproc 2>/dev/null || echo 1)" -ge 2 ] || conc=1
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
-fails=0
+: > "$tmp/failures"
 step() { printf '\n== %s\n' "$1"; }
-run_fail() { if "$@" >"$tmp/last.log" 2>&1; then echo "  FAIL  should have been rejected: $*" | cut -c1-110; fails=$((fails+1)); else echo "  ok    rejected: $*" | cut -c1-110; fi; }
-run()  { if "$@" >"$tmp/last.log" 2>&1; then echo "  ok    $*" | cut -c1-110; else echo "  FAIL  $*" | cut -c1-110; tail -5 "$tmp/last.log" | sed 's/^/        /'; fails=$((fails+1)); fi; }
+run_fail() { if "$@" >"$tmp/last.log" 2>&1; then echo "  FAIL  should have been rejected: $*" | cut -c1-110; echo failure >> "$tmp/failures"; else echo "  ok    rejected: $*" | cut -c1-110; fi; }
+run()  { if "$@" >"$tmp/last.log" 2>&1; then echo "  ok    $*" | cut -c1-110; else echo "  FAIL  $*" | cut -c1-110; tail -5 "$tmp/last.log" | sed 's/^/        /'; echo failure >> "$tmp/failures"; cp "$tmp/last.log" "$tmp/failure-$(wc -l < "$tmp/failures").log"; fi; }
 
 step "shell syntax"
-for f in "$root"/install.sh "$root"/test.sh "$root"/skills/removid/scripts/*.sh; do run bash -n "$f"; done
+for f in "$root"/install.sh "$root"/test.sh "$root"/skills/removid/scripts/*.sh "$root"/skills/removid/fast/setup.sh "$root"/skills/removid/fast/scripts/*.sh; do run bash -n "$f"; done
 
 step "project tool: script, storyboard and gate tests (mutants must be rejected)"
 run node --check "$root/skills/removid/scripts/project.mjs"
@@ -24,6 +26,10 @@ run test -f "$tmp/proj/.claude/skills/removid/SKILL.md"
 run test -f "$tmp/proj/.agent/skills/removid/templates/remotion-starter/package.json"
 run "$root/install.sh" --project "$tmp/proj" --uninstall
 run test ! -e "$tmp/proj/.claude/skills/removid"
+run "$root/install.sh" --copy --project "$tmp/copy"
+run test -f "$tmp/copy/.agents/skills/removid/fast/setup.sh"
+run test -f "$tmp/copy/.agents/skills/removid/fast/data/recipes.json"
+run node "$tmp/copy/.agents/skills/removid/fast/scripts/pick.mjs" "promo aplikasi tanpa narasi"
 
 step "scaffold a project from the starter and audit it"
 run "$root/skills/removid/scripts/new-project.sh" "$tmp/app"
@@ -50,6 +56,9 @@ step "numeric checks must FAIL on a broken scene (mutant)"
   && run_fail node scripts/check-logic.mjs; cp "$tmp/nd.bak" src/scenes/narrator.data.ts; run node scripts/check-logic.mjs )
 
 if [ "$full" -eq 1 ]; then
+  step "FAST kit: typecheck, 60 fps renders, audio and QA mutants (full ffmpeg + numpy/scipy when available)"
+  run node "$root/tests/fast-render.mjs" "$tmp/fast"
+  grep -h '^SKIPPED' "$tmp/last.log" | sed 's/^/  SKIP  /'   # REMOVID_REQUIRE_AUDIO=1 makes this a failure
   step "pixel cursor check (renders stills with debug=true)"
   ( cd "$tmp/app" && run node scripts/check-click-stills.mjs UiDemo )
   step "the pixel check must FAIL when the cursor is drawn 90 px off (mutant)"
@@ -63,11 +72,12 @@ if [ "$full" -eq 1 ]; then
   step "stills at global times"
   ( cd "$tmp/app" && run node scripts/stills.mjs 1.0,5.0 --id UiDemo && run test -s out/stills/UiDemo-t5.00.png )
   step "render both scenes at 60 fps and probe"
-  ( cd "$tmp/app" && run npx remotion render src/index.ts UiDemo out/ui.mp4 \
+  ( cd "$tmp/app" && run npx remotion render src/index.ts UiDemo out/ui.mp4 --concurrency=$conc \
     && run bash "$root/skills/removid/scripts/probe-mp4.sh" out/ui.mp4 1920x1080 60 10 \
-    && run npx remotion render src/index.ts Narrator out/nar.mp4 \
+    && run npx remotion render src/index.ts Narrator out/nar.mp4 --concurrency=$conc \
     && run bash "$root/skills/removid/scripts/probe-mp4.sh" out/nar.mp4 1920x1080 60 11 )
 fi
 
+fails=$(wc -l < "$tmp/failures")
 printf '\n'; [ "$fails" -eq 0 ] && echo "ALL OK" || echo "$fails FAIL"
 exit $(( fails > 0 ))

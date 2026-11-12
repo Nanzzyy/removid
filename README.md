@@ -100,6 +100,8 @@ node $P assemble promo-umkm          # HyperFrames index.html from plan.json; re
 
 Inside `Source/remotion`: `npm run check` (zoom, cursor, pose, lip sync), `npm run check:cursor` (cursor tip on its targets, in pixels), `npm run studio`. Folder layout and gates: `skills/removid/references/project-folder.md`.
 
+For motion graphics without narration up to 45 seconds (music and effects are always included; a video without sound is a defect), [the FAST kit](skills/removid/fast/FAST.md) provides a compact style router, 36 motion recipes, ready scenes, a timing compiler, synthesized music/effects and video QA. It uses the same project folders and approval gates, with 60 fps previews and clips; HyperFrames still cuts, transitions and mixes the result. Narration, footage, target zoom and cursor demos use the full starter. Audio synthesis additionally needs Python with numpy/scipy and a full ffmpeg; set `REMOVID_PYTHON` and `REMOVID_FFMPEG` to existing tools. The imported archive's token savings and render benchmarks are not measurements of this integration.
+
 ## Source material
 
 `source-material/creative-agent-style-library/` holds the prose style guides the 36 checked styles were distilled from (provenance and mapping: `source-material/README.md`). It is reference only and is never installed.

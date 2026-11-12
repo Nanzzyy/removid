@@ -2,6 +2,11 @@
 
 `node skills/removid/scripts/project.mjs version` prints the version the agent is actually running, and whether it is behind `origin/main`.
 
+## 0.11.0
+- Optional `fast/` kit for videos without narration up to 45 seconds (music and effects are always included; a video without sound is a defect): compact style selection, 36 motion recipes, ready Remotion scenes, timing from the approved frame plan, synthesized music/effects and strict video QA. Uses the existing intake, folder schema, approval gates and 60 fps pipeline; HyperFrames handles transitions and audio. Canonical style tokens remain in `styles/styles.json`.
+- `Storyboard/direction.json`, when present, participates in storyboard approval hashes. Changing it invalidates the storyboard, sample and final approvals. FAST rejects content absent from the storyboard's checked text windows.
+- Tests cover style recipes, stale gates, invalid directions, loudness failures, copy installation and, with `--full`, real kit renders and QA failure cases. Python audio tests require numpy/scipy and full ffmpeg.
+
 ## 0.10.0
 - **`SCRIPT.md` is exactly the tagged lines** and nothing else: no front matter, comment, heading or table, so the file itself (not only the block the tool prints) can go to any TTS. Claims moved to `Storyboard/CLAIMS.md`, words-per-second to `PROJECT.md` (`new --wps`). `check script` errors on anything else; `script-clean <project>` fixes a 0.8/0.9 script. Test: the file is byte-identical to `vo-script`.
 

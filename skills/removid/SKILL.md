@@ -45,6 +45,7 @@ Run `project.mjs intake "<the user's words>" --json` first. It reads the brief a
 | Need | Read |
 | --- | --- |
 | Any new video | `references/workflow.md` (start here), `references/project-folder.md` |
+| Short (≤45 s) motion graphics without narration (music and effects always included); ready scene and audio kit | `fast/FAST.md` (same intake, folder and gates; full starter for footage, narration, cursor or target zoom) |
 | What the video is made of: beats, footage, one idea each | `references/structure.md` |
 | Script (naskah), voice timing, claims | `references/script.md` |
 | Emotion tags, voice engines, the voice after the script | `references/emotion-and-voice.md` |

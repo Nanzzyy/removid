@@ -524,6 +524,7 @@ function checkStoryboard(proj) {
     if (get('scene')[0] && get('scene')[0].length < 8) E(`${tag}: scene description is too short to build from`);
     for (const a of get('asset')) for (const ref of pathLike(a)) if (!assetExists(proj, ref)) W(`${tag}: asset ${ref} is not in the project yet (Asset/owner, Asset/agen or Raw-Footage); it must exist before the build`);
     const eng = (get('engine')[0] || '').toLowerCase();
+    p.engine = eng;
     if (eng && !['remotion', 'footage', 'remotion+footage'].includes(eng)) E(`${tag}: engine "${eng}" is not allowed. Remotion authors scenes (remotion); HyperFrames only cuts raw footage (footage).`);
     const vo = get('vo'); if (!vo.length) E(`${tag}: missing "- vo:" (use "- vo: none" for a silent frame)`);
     for (const v of vo) {
@@ -680,7 +681,8 @@ function hashStoryboard(proj, data) {
   if (!exists(P(proj, 'Storyboard', 'STORYBOARD.md'))) return '';
   const hs = hashStructure(proj);
   // The style is part of what the user approved: changing it cancels the storyboard approval (and the sample and final after it).
-  return sha(read(P(proj, 'Storyboard', 'STORYBOARD.md')) + (narrated(data) ? '\n#script ' + hashScript(proj) : hs ? '\n#structure ' + hs : '') + (data.style && data.style !== 'undecided' ? '\n#style ' + data.style : ''));
+  const direction = P(proj, 'Storyboard', 'direction.json');
+  return sha(read(P(proj, 'Storyboard', 'STORYBOARD.md')) + (narrated(data) ? '\n#script ' + hashScript(proj) : hs ? '\n#structure ' + hs : '') + (data.style && data.style !== 'undecided' ? '\n#style ' + data.style : '') + (exists(direction) ? '\n#direction ' + read(direction) : ''));
 }
 function currentHash(proj, gate, data) { return gate === 'script' ? hashScript(proj) : hashStoryboard(proj, data); }
 function accState(proj, gate, data) {
