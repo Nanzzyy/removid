@@ -48,7 +48,7 @@ test('all 36 recipes use the canonical tokens and readable secondary text', () =
     assert.ok(/^[a-z0-9-]+@[1-9]00$/.test(r.font.head));
   }
 });
-test('routing honors aliases, keeps ordinary words from forcing a style, and requires silent intake', () => {
+test('routing honors aliases, keeps ordinary words from forcing a style, and requires a no-narration intake', () => {
   assert.equal(pick('promo payment system tanpa narasi').style, 'FLATLIFE');
   assert.equal(pick('promo pakai style SYSTEM tanpa narasi').style, 'SYSTEM');
   assert.equal(pick('promo gaya tanah liat tanpa narasi').style, 'CLAY-3D');

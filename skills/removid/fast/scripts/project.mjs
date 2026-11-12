@@ -1,4 +1,4 @@
-// Shared guard for the optional silent kit. Use the existing project gate and plan.
+// Shared guard for the optional FAST kit (videos without narration). Use the existing project gate and plan.
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';

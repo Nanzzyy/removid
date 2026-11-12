@@ -37,7 +37,7 @@ export function pick(brief, {style, mood, footage = false} = {}) {
     why: named ? 'style disebut user' : `kategori dari brief, style skor ${ranked[0].score}`,
     mood: mood ?? recipes[s.id].music, alternatives: named ? [] : ranked.slice(1, 3).map((x) => x.s.name),
     assumed: [!b.format && 'format 9:16', !b.duration && 'durasi 20 dtk', !mood && `musik ${recipes[s.id].music}`].filter(Boolean),
-    fast: {eligible, reason: eligible ? 'silent kit; existing project gates still apply' : 'use the full workflow; confirm narration/footage/duration at intake', dimensionality: category === 'motion-3d' ? '2.5D only; genuine 3D needs the full starter' : '2D'},
+    fast: {eligible, reason: eligible ? 'FAST kit (no narration); existing project gates still apply' : 'use the full workflow; confirm narration/footage/duration at intake', dimensionality: category === 'motion-3d' ? '2.5D only; genuine 3D needs the full starter' : '2D'},
     ask: brief.split(/\s+/).filter(Boolean).length < 4 ? ['Topik / produk apa yang divideokan?'] : []};
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
