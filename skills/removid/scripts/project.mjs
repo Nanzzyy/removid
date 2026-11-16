@@ -565,8 +565,18 @@ function checkStoryboard(proj) {
       if (inside(e.start, e.end, `narrator ${e.kind}`)) { cues.push(e); p.narrator.push(e); }
     }
     for (const x of get('sfx')) {
+      const lib = x.match(/^lib\s+(\S+)\s+@(\d+(?:[.,]\d+)?)(?:\s+gain=([\d.]+))?\s*$/i);
+      if (lib) { // a licensed effect fetched into Asset/agen/sfx/ (openverse.mjs), not synthesized
+        if (!/^[\w.-]+\.(?:mp3|wav|ogg|flac|m4a|aac|opus)$/i.test(lib[1])) { E(`${tag}: sfx lib needs a bare file name in Asset/agen/sfx/ (got "${lib[1]}")`); continue; }
+        const rel = `Asset/agen/sfx/${lib[1]}`;
+        if (!exists(P(proj, rel))) W(`${tag}: sfx lib file ${rel} does not exist yet (openverse.mjs fetch puts it there); sfx.mjs stops until it does`);
+        else if (!read(P(proj, 'Asset', 'ASSETS.md')).includes(`agen/sfx/${lib[1]}`)) W(`${tag}: ${rel} is not listed in Asset/ASSETS.md (licence and attribution go there)`);
+        const e = {frame: fr.n, kind: 'lib', file: rel, at: num(lib[2]), gain: lib[3] ? Number(lib[3]) : 1, source: 'storyboard'};
+        if (inside(e.at, e.at, `sfx lib ${lib[1]}`)) p.sfx.push(e);
+        continue;
+      }
       const m = x.match(/^(\w+)\s+@(\d+(?:[.,]\d+)?)(?:\s+gain=([\d.]+))?/);
-      if (!m || !SFX_KINDS.includes(m[1].toLowerCase())) { E(`${tag}: sfx must look like: ${SFX_KINDS.join('|')} @1.20 [gain=0.6]`); continue; }
+      if (!m || !SFX_KINDS.includes(m[1].toLowerCase())) { E(`${tag}: sfx must look like: ${SFX_KINDS.join('|')} @1.20 [gain=0.6], or lib <file.wav> @1.20 [gain=0.6] for a file in Asset/agen/sfx/`); continue; }
       const e = {frame: fr.n, kind: m[1].toLowerCase(), at: num(m[2]), gain: m[3] ? Number(m[3]) : 1, source: 'storyboard'};
       if (st && !st.sfx.includes(e.kind)) W(`${tag}: ${st.name} does not use "${e.kind}" effects (it uses ${st.sfx.join(', ') || 'none'})`);
       if (inside(e.at, e.at, `sfx ${e.kind}`)) p.sfx.push(e);

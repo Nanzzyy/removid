@@ -2,6 +2,12 @@
 
 `node skills/removid/scripts/project.mjs version` prints the version the agent is actually running, and whether it is behind `origin/main`.
 
+## 0.12.0
+- **Licensed sound effects.** `scripts/openverse.mjs` searches Openverse (keywords only leave the machine; licences allowing commercial use and modification by default, nc/nd refused) and fetches a file into `Asset/agen/sfx/` with a ledger row (licence, attribution, source), checking https, size and that the file has an audio stream. The storyboard takes `- sfx: lib <file> @1.20 [gain=0.6]`; `check storyboard` warns about a missing or unlisted file and `sfx.mjs` mixes it peak-levelled with the synthesized kinds. Measured on the live API: Freesound effects have no category, so no category filter is sent by default.
+- **Cloning a reference.** `scripts/clone-import.mjs` turns a rea-video breakdown (`VIDEO.md` + `video/timeline.md`) into `Reference/<id>.analysis.md` and a `REFERENCES.md` row; it rejects an inconsistent package and warns when no image reader has looked at the video. rea-video stays the user's own tool.
+- **3D props.** `GlbProp` (starter) draws a GLB and poses its joints from sand3d's recorded joints (`src/lib/glb-joints.ts`: revolute, continuous, prismatic, range errors, files exported with a moved joint); the `PropSheet` composition and `npm run prop` render and check it (clipping, range, a joint that moves nothing). sand3d stays the user's own tool.
+- References `clone.md`, `sfx-search.md`, `props-3d.md`. Tests: fake-Openverse and real-format rea-video fixtures, golden joint numbers from sand3d 1.6.3, mutants for each check.
+
 ## 0.11.2
 - `gate deliver` refuses a final with no sound: every mp4/webm/mov in the latest `Result/vN` must have an audio stream (a gif is exempt), and an unreadable file or a missing ffprobe also refuses. Test: `tests/fast.test.mjs` (a text file and a video without audio are rejected; one with audio passes; the check removed makes the test fail).
 

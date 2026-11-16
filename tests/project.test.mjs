@@ -125,6 +125,35 @@ test('sfx.mjs renders the events at their times and silence elsewhere', { skip: 
   const bad = path.join(tmp, 'bad-plan.json'); fs.writeFileSync(bad, JSON.stringify({totalSec: 5, sfx: [{kind: 'laser', at: 1}]}));
   assert.equal(spawnSync('node', [path.join(ROOT, 'skills/removid/scripts/sfx.mjs'), bad, '--out', path.join(tmp, 'x.wav')]).status, 1);
 });
+test('sfx lib lines: a licensed file in Asset/agen/sfx lands in plan.json; a missing file, an unlisted file and a bad name are told apart', () => {
+  const LIB = '- sfx: whoosh @3.00 gain=0.7\n- sfx: lib door.wav @5.00 gain=0.8';
+  const d = project(); edit(SB(d), '- sfx: whoosh @3.00 gain=0.7', LIB);
+  let r = run('check', 'storyboard', d); assert.equal(r.code, 0, r.out); assert.match(r.out, /sfx lib file Asset\/agen\/sfx\/door\.wav does not exist yet/);
+  const ev = () => JSON.parse(fs.readFileSync(path.join(d, 'Storyboard/plan.json'), 'utf8')).sfx.find((e) => e.kind === 'lib');
+  assert.deepEqual(ev(), {frame: 2, kind: 'lib', file: 'Asset/agen/sfx/door.wav', at: 5, gain: 0.8, source: 'storyboard'});
+  fs.mkdirSync(path.join(d, 'Asset/agen/sfx'), {recursive: true}); fs.writeFileSync(path.join(d, 'Asset/agen/sfx/door.wav'), 'x');
+  r = run('check', 'storyboard', d); assert.equal(r.code, 0, r.out); assert.doesNotMatch(r.out, /does not exist yet/); assert.match(r.out, /agen\/sfx\/door\.wav is not listed in Asset\/ASSETS\.md/);
+  fs.appendFileSync(path.join(d, 'Asset/ASSETS.md'), '| agen/sfx/door.wav | third party | CC0 | frame 2 |\n');
+  r = run('check', 'storyboard', d); assert.equal(r.code, 0, r.out); assert.doesNotMatch(r.out, /door\.wav/);
+  for (const [bad, re] of [['lib ../x.wav @5.00', /bare file name/], ['lib door.exe @5.00', /bare file name/], ['lib door.wav @9.00', /outside the frame/], ['lib @5.00', /sfx must look like.*lib <file/], ['lib door.wav 5.00', /sfx must look like/]]) {
+    const m = project(); edit(SB(m), '- sfx: whoosh @3.00 gain=0.7', '- sfx: ' + bad); const x = run('check', 'storyboard', m); assert.equal(x.code, 1, bad + '\n' + x.out); assert.match(x.out, re, bad);
+  }
+});
+test('sfx.mjs mixes a library file at its time, levelled like the synthesized kinds, and stops on a missing or misplaced file', { skip: !fullFfmpeg && 'needs a full ffmpeg build' }, () => {
+  const d = project(); edit(SB(d), '- sfx: whoosh @3.00 gain=0.7', '- sfx: lib door.wav @5.00 gain=1'); fs.mkdirSync(path.join(d, 'Asset/agen/sfx'), {recursive: true});
+  const lib = path.join(d, 'Asset/agen/sfx/door.wav');
+  assert.equal(spawnSync(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'sine=frequency=500:duration=1', '-af', 'volume=0.05', lib]).status, 0); // a quiet file: -26 dB peak
+  fs.appendFileSync(path.join(d, 'Asset/ASSETS.md'), '| agen/sfx/door.wav | third party | CC0 | frame 2 |\n'); run('check', 'storyboard', d);
+  const plan = path.join(d, 'Storyboard/plan.json'), wav = path.join(tmp, 'lib.wav');
+  const r = spawnSync('node', [path.join(ROOT, 'skills/removid/scripts/sfx.mjs'), plan, '--out', wav], {encoding: 'utf8'}); assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /lib@5\.00\(door\.wav\)/);
+  const peak = (at, len) => { const q = spawnSync(FFMPEG, ['-hide_banner', '-ss', String(at), '-t', String(len), '-i', wav, '-af', 'volumedetect', '-f', 'null', '-'], {encoding: 'utf8'}); const m = (q.stderr || '').match(/max_volume: (-?[\d.]+) dB/); return m ? Number(m[1]) : -99; };
+  const p = peak(5.0, 1.0); assert.ok(p > -22 && p < -16, `a -26 dB file is levelled to about -3 dB, then the -16 dB base gain: peak ${p}`);
+  assert.ok(peak(4.0, 0.9) < -80, 'silence before the file'); assert.ok(peak(6.3, 3.0) < -80, 'silence after the file');
+  fs.rmSync(lib); const gone = spawnSync('node', [path.join(ROOT, 'skills/removid/scripts/sfx.mjs'), plan, '--out', wav], {encoding: 'utf8'}); assert.equal(gone.status, 1); assert.match(gone.stderr, /sfx lib file missing: Asset\/agen\/sfx\/door\.wav/);
+  fs.writeFileSync(lib, 'not audio'); const junk = spawnSync('node', [path.join(ROOT, 'skills/removid/scripts/sfx.mjs'), plan, '--out', wav], {encoding: 'utf8'}); assert.equal(junk.status, 1); assert.match(junk.stderr, /cannot read audio/);
+  const out = JSON.parse(fs.readFileSync(plan, 'utf8')); out.sfx.find((e) => e.kind === 'lib').file = '../Storyboard/plan.json'; const evil = path.join(d, 'Storyboard/evil.json'); fs.writeFileSync(evil, JSON.stringify(out));
+  const esc = spawnSync('node', [path.join(ROOT, 'skills/removid/scripts/sfx.mjs'), evil, '--out', wav], {encoding: 'utf8'}); assert.equal(esc.status, 1); assert.match(esc.stderr, /must sit in Asset\/agen\/sfx/);
+});
 test('a click that finishes before the zoom starts is allowed, one that straddles the ramp is not', () => {
   const ok = project(); edit(SB(ok), 'laporan-chart 18.40–20.90', 'laporan-chart 18.00–20.90'); // click at 17.92 <= 18.00
   assert.equal(run('check', 'storyboard', ok).code, 0);
