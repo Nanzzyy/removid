@@ -7,7 +7,7 @@ This repo ships one agent skill, `removid`, for making programmatic video with R
 - `skills/removid/SKILL.md`: the entrypoint. Keep it short (router, workflow, hard rules). Frontmatter `name` must equal the directory name.
 - `skills/removid/references/*.md`: detail loaded on demand. Add depth here, not in `SKILL.md`.
 - `skills/removid/styles/`: `styles.json` (36 styles as checked tokens) and `emotions.json` (12 emotion tags: voice, face, gestures). The single source; the starter's `src/emotions.ts` is generated from it (a test fails on drift: regenerate, never hand-edit).
-- `skills/removid/scripts/`: `project.mjs` (intake, folder, structure/script/storyboard checks, gates, voice lines and measuring, assemble; Node only, no dependencies), `lib-style.mjs` and `lib-emotion.mjs` (the two tables as code), `sfx.mjs` (effects track, full ffmpeg) and small bash helpers (`doctor.sh`, `probe-mp4.sh`, `new-project.sh`: bash, ffmpeg/ffprobe, awk).
+- `skills/removid/scripts/`: `project.mjs` (intake, folder, structure/script/storyboard checks, gates, voice lines and measuring, assemble; Node only, no dependencies), `lib-style.mjs` and `lib-emotion.mjs` (the two tables as code), `sfx.mjs` (effects track, full ffmpeg; `lib` files from Openverse), `openverse.mjs` (search and fetch licensed effects), `clone-import.mjs` (rea-video breakdown to reference analysis) and small bash helpers (`doctor.sh`, `probe-mp4.sh`, `new-project.sh`: bash, ffmpeg/ffprobe, awk).
 - `skills/removid/templates/project/`: the files a new project folder starts from.
 - `tests/`: `project.test.mjs` and the 30 s PrvTech fixture (the user's original script, a tightened script, a storyboard).
 - `skills/removid/templates/remotion-starter/`: the tested Remotion starter. Inside the skill directory on purpose: only that directory is installed, so anything outside it is invisible to the agent.
@@ -23,7 +23,7 @@ This repo ships one agent skill, `removid`, for making programmatic video with R
 - References are condensed from upstream docs. Do not paste upstream files wholesale; link to the authoritative source (`npx hyperframes docs <topic>`, remotion.dev/docs) for exhaustive detail.
 - Scripts must exit non-zero on failure and print what failed. Test them before committing: `bash -n` and a run against a real file.
 - Do not add generated renders, `node_modules` or media to this repo.
-- Never add code that installs, downloads, starts or deploys a voice engine, a container or a model on a user's or anyone's machine. Voice routes are the agent's own tool, a speech server the owner already runs (loopback only, `lib-voice.mjs`), or the user's audio files.
+- Never add code that installs, downloads, starts or deploys a voice engine, a container or a model on a user's or anyone's machine. The same holds for rea-video and sand3d (the user's own tools; `clone-import.mjs` and `GlbProp` only read what they wrote). The one download is `openverse.mjs fetch`: a single licensed sound file the user's project asked for, checked and ledgered. Never send anything but search keywords to Openverse. Voice routes are the agent's own tool, a speech server the owner already runs (loopback only, `lib-voice.mjs`), or the user's audio files.
 
 ## Test
 
