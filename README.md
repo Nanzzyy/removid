@@ -5,7 +5,15 @@ One agent skill for making video from code, at **60 fps** by default. Two tools,
 - **Remotion** authors and edits every scene: layout, text, UI demos, a **cursor that lands exactly on its target**, **smooth zoom-to-highlight**, a **3D narrator character that Claude designs for each video (woman, man, pixel, mascot...) with lip sync**, data-driven batches. Each scene is rendered to a clip.
 - **HyperFrames** cuts and assembles those clips (and raw footage): trim, split, order, transitions, music, final render.
 
-The skill runs a **short interview** (`project.mjs intake`: it reads the brief, then asks in two short rounds only what the brief leaves open: the type of video (motion graphics, video editing from footage, motion 3D), format and voice; then the style of that type and its technical needs), then works from a **project folder** through four **approval gates**: structure + script, storyboard, 10 s sample, final. A video starts as a **structure** (beats: the time budget, what is shown, which footage, the one idea, the emotion), then a **script** with no seconds at all (only the lines, so it can go to any TTS as it is), whose every line opens with an **emotion tag** (`[curious]`, `[mad]`, `[sad]`, `[laugh]`...). The voice is made after the script, from one of three routes (the agent's default voice, a local speech server the owner already runs, or the user's own audio files; removid installs no engine anywhere), and the same tag drives how the line is spoken, how the narrator's face acts and which gestures fit. **36 video styles** (clay, pixel, paper, blueprint, midnight, lantang...) are data the checks enforce: palette, rhythm, transitions, camera limit, easing. The script and the storyboard are *calculated*, not eyeballed: `project.mjs check` fails a script whose words do not fit their time windows, an unverified claim, a storyboard with a gap, a vo line that differs from the script, or a cursor landing while the camera zooms. Approvals are quoted user words bound to file hashes. The cursor and zoom rules are also checked in numbers and in rendered pixels.
+**New to removid?** Watch the 45-second tutorial or follow the [written guide in Indonesian](skills/removid/references/first-video.md).
+
+[![Watch the removid tutorial](skills/removid/references/media/panduan-removid.jpg)](skills/removid/references/media/panduan-removid.mp4?raw=true)
+
+The skill runs a **short interview** (`project.mjs intake`: it reads the brief, then asks in two short rounds only what the brief leaves open: the type of video (motion graphics, video editing from footage, motion 3D), format and voice; then the style of that type and its technical needs), then works from a **project folder** through four **approval gates**: structure + script, storyboard, 10 s sample, final.
+
+A video starts as a **structure** (beats: the time budget, what is shown, which footage, the one idea, the emotion), then a **script** with no seconds at all (only the lines, so it can go to any TTS as it is), whose every line opens with an **emotion tag** (`[curious]`, `[mad]`, `[sad]`, `[laugh]`...). The voice is made after the script, from one of three routes (the agent's default voice, a local speech server the owner already runs, or the user's own audio files; removid installs no engine anywhere), and the same tag drives how the line is spoken, how the narrator's face acts and which gestures fit.
+
+**36 video styles** (clay, pixel, paper, blueprint, midnight, lantang...) are data the checks enforce: palette, rhythm, transitions, camera limit, easing. The script and the storyboard are *calculated*, not eyeballed: `project.mjs check` fails a script whose words do not fit their time windows, an unverified claim, a storyboard with a gap, a vo line that differs from the script, or a cursor landing while the camera zooms. Approvals are quoted user words bound to file hashes. The cursor and zoom rules are also checked in numbers and in rendered pixels.
 
 ## Install
 
@@ -45,6 +53,7 @@ Its output on an old copy is an error (`usage: ...` without `version`): that is 
 skills/removid/
 ├── SKILL.md                      roles, 60 fps default, questions to ask, routing, hard rules
 ├── references/
+│   ├── first-video.md            Indonesian walkthrough with diagrams and a video tutorial
 │   ├── workflow.md               intake, folder, structure + script, voice, storyboard, Remotion, HyperFrames, sample, final
 │   ├── intake.md                 the short interview: known / assumed / the few questions
 │   ├── structure.md              beats: what each shows, footage, one idea, emotion
@@ -80,25 +89,16 @@ skills/removid/
 
 ## Use
 
-In the agent: `/removid <what you want>`. It asks, creates the folder and walks the gates. The same steps by hand (`P=skills/removid/scripts/project.mjs`):
+Open your agent in the workspace where you want the video project. Paste this brief in Claude Code, or replace `/removid` with `$removid` in Codex.
 
-```bash
-node $P intake "your request, in your words"      # known / assumed / the questions worth asking
-node $P new PrvTech promo-umkm --root ~/videos --narration yes --format landscape --duration 30 --style flatlife --brief "your request, in your words"
-node $P check script promo-umkm      # structure, words and seconds per window, emotions, claims; edit Storyboard/STRUCTURE.md and SCRIPT.md until clean
-node $P submit script promo-umkm     # then the user answers ...
-node $P approve script promo-umkm --evidence "the user's words"
-node $P voice-check                  # which voice routes exist here (read-only)
-node $P vo-lines promo-umkm --engine edge   # per-line text and voice settings from the emotion tags
-node $P vo promo-umkm voice.wav      # measure the real voice (or vo-place for one file per line)
-node $P check storyboard promo-umkm  # frame table, vo/zoom/cursor rules, writes plan.json
-node $P submit storyboard promo-umkm && node $P approve storyboard promo-umkm --evidence "..."
-node $P scaffold promo-umkm          # Remotion starter + plan.json into Source/remotion
-node skills/removid/scripts/sfx.mjs promo-umkm/Storyboard/plan.json --out Asset/agen/sfx.wav   # effects + cursor clicks
-node $P assemble promo-umkm          # HyperFrames index.html from plan.json; rejects clips with the wrong frame count
+```text
+/removid Make a 20-second Reels video inviting people to a community clean-up.
+Use the lantang style with on-screen text, music and effects. No narration.
 ```
 
-Inside `Source/remotion`: `npm run check` (zoom, cursor, pose, lip sync), `npm run check:cursor` (cursor tip on its targets, in pixels), `npm run studio`. Folder layout and gates: `skills/removid/references/project-folder.md`.
+Review the storyboard, sample and final in order. Each approval applies to the version you just reviewed. A narrated project also has a structure and script review before recording. For a worked tutorial and sample feedback, see [Panduan video pertama](skills/removid/references/first-video.md).
+
+For manual CLI use, follow the [technical workflow](skills/removid/references/workflow.md) and the [project folder and gate reference](skills/removid/references/project-folder.md). In the Remotion starter, `npm run studio` opens the editor, `npm run check` audits scene logic, and `npm run check:cursor` checks cursor positions in rendered pixels.
 
 For motion graphics without narration up to 45 seconds (music and effects are always included; a video without sound is a defect), [the FAST kit](skills/removid/fast/FAST.md) provides a compact style router, 36 motion recipes, ready scenes, a timing compiler, synthesized music/effects and video QA. It uses the same project folders and approval gates, with 60 fps previews and clips; HyperFrames still cuts, transitions and mixes the result. Narration, footage, target zoom and cursor demos use the full starter. Audio synthesis additionally needs Python with numpy/scipy and a full ffmpeg; set `REMOVID_PYTHON` and `REMOVID_FFMPEG` to existing tools. The imported archive's token savings and render benchmarks are not measurements of this integration.
 
