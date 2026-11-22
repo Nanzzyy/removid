@@ -5,6 +5,7 @@ import {FPS, H, s, W} from './lib/time.ts';
 import {CharacterSheet, SHEET_CELL} from './scenes/CharacterSheet.tsx';
 import {EMO_SHEET, EmotionSheet} from './scenes/EmotionSheet.tsx';
 import {Narrator} from './scenes/Narrator.tsx';
+import {PROP_CELL, PropSheet} from './scenes/PropSheet.tsx';
 import {DURATION_SEC as NARRATOR_SEC} from './scenes/narrator.data.ts';
 import {UiDemo} from './scenes/UiDemo.tsx';
 import {DURATION_SEC as UIDEMO_SEC} from './scenes/uiDemo.data.ts';
@@ -28,5 +29,15 @@ export const Root: React.FC = () => (
     />
     <Composition id="EmotionSheet" component={EmotionSheet} schema={z.object({id: z.string()})} defaultProps={{id: 'ayu'}} durationInFrames={1} fps={FPS} width={EMO_SHEET.cols * EMO_SHEET.cell.w} height={EMO_SHEET.rows * EMO_SHEET.cell.h} />
     <Composition id="CharacterSheet" component={CharacterSheet} schema={z.object({id: z.string()})} defaultProps={{id: 'ayu'}} durationInFrames={1} fps={FPS} width={3 * SHEET_CELL.w} height={SHEET_CELL.h} />
+    <Composition
+      id="PropSheet"
+      component={PropSheet}
+      schema={z.object({src: z.string(), joint: z.string(), values: z.array(z.number()).max(4), yaw: z.number(), pitch: z.number(), margin: z.number()})}
+      defaultProps={{src: 'props/prop.glb', joint: '', values: [0], yaw: 30, pitch: 18, margin: 0.25}}
+      durationInFrames={1}
+      fps={FPS}
+      width={4 * PROP_CELL.w}
+      height={PROP_CELL.h}
+    />
   </>
 );

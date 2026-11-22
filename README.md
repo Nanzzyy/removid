@@ -65,6 +65,7 @@ skills/removid/
 │   ├── remotion.md               authoring scenes at 60 fps
 │   ├── cursor-and-camera.md      cursor on target, click, zoom-highlight, verification
 │   ├── character-and-narration.md  narrator character, voice, envelope, cues
+│   ├── clone.md, sfx-search.md, props-3d.md   a reference video to clone, licensed sound effects, 3D props (sand3d GLB)
 │   ├── handoff.md                Remotion clips into HyperFrames, verifying the cut
 │   ├── hyperframes.md            cutting and assembly, contract, CLI loop
 │   └── motion-design.md          easing, duration, 60 fps, stagger, framing, beat sync
@@ -73,6 +74,8 @@ skills/removid/
 │   ├── lib-style.mjs, lib-emotion.mjs   the style table and emotion table as code (matching, contrast, recommendations, engine adapters)
 │   ├── lib-voice.mjs             optional connector to a LOCAL speech server (loopback only, starts nothing)
 │   ├── sfx.mjs                   synthesize the sound-effect track from plan.json (full ffmpeg)
+│   ├── openverse.mjs             search and fetch licensed sound effects (Openverse); `sfx: lib` mixes them
+│   ├── clone-import.mjs          a rea-video breakdown into the project's reference analysis
 │   ├── doctor.sh                 tool check (Node, ffmpeg, the minimal-ffmpeg trap)
 │   ├── new-project.sh            scaffold a Remotion project from the starter
 │   └── probe-mp4.sh              assert size / fps / duration of a render
@@ -81,10 +84,10 @@ skills/removid/
 └── templates/remotion-starter/   tested starter: UiDemo (cursor + zoom) and Narrator (3D character)
     ├── src/lib/                  camera, cursor, pose, emotion, face, style, envelope, plan (pure, no React)
     ├── src/style.ts, emotions.ts the chosen style and the emotion table (written by scaffold)
-    ├── src/components/           Camera, CursorLayer, Spotlight, TargetBox, Character, NarratorLayer
+    ├── src/components/           Camera, CursorLayer, Spotlight, TargetBox, Character, NarratorLayer, GlbProp (GLB props with joints)
     ├── src/characters/           the contract (types), humanoid / voxel / mascot builders, the registry
     ├── src/scenes/               scenes and their *.data.ts (targets, stops, shots, cues)
-    └── scripts/                  check-logic, check-click-stills, stills, character-sheet, make-envelope
+    └── scripts/                  check-logic, check-click-stills, stills, character-sheet, prop-sheet, make-envelope
 ```
 
 ## Use

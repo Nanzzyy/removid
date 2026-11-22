@@ -17,6 +17,7 @@ import {clipRange, exitAlpha, HANDLE_FRAMES, revealTimes} from '../src/lib/plan.
 import {DEFAULT_MOOD, moodAt, segmentAt} from '../src/lib/emotion.ts';
 import {EASES, easeNamed} from '../src/lib/ease.ts';
 import {stepTime} from '../src/lib/style.ts';
+import {jointInfo, poseJoint, restOf} from '../src/lib/glb-joints.ts';
 import {STYLE} from '../src/style.ts';
 
 let fails = 0;
@@ -268,6 +269,36 @@ console.log('Style: tokens and easing');
   /^#[0-9a-f]{6}$/i.test(STYLE.palette.bg) && /^#[0-9a-f]{6}$/i.test(STYLE.palette.fg) ? ok(`palette has hex colours (${STYLE.name})`) : fail('palette colours must be #rrggbb');
   stepTime(0.234, 10) === 0.2 && stepTime(0.234, 0) === 0.234 && stepTime(0.3, 10) === 0.3 ? ok('stepTime holds a pose between steps and passes time through at 0 fps') : fail(`stepTime(0.234,10)=${stepTime(0.234, 10)}`);
   STYLE.transition.sec <= 0.5 ? ok(`transition ${STYLE.transition.kind} ${STYLE.transition.sec} s fits the 0.5 s of clip overlap`) : fail('transition longer than the clip handles allow');
+}
+
+console.log('GLB props: joints of a sand3d file are posed the way sand3d recorded them');
+{
+  // Golden numbers: sand3d 1.6.3 washing_machine.py exported at rest and again after pose(92, "door_hinge") and pose(120, "drawer_slide") (a root scaled 0.001, mm nodes).
+  const mk = (name, p, q, j) => { const root = new THREE.Object3D(); root.scale.setScalar(0.001); const n = new THREE.Object3D(); n.name = name; n.position.set(...p); n.quaternion.set(...q); n.userData = {s3d_joint: {name, ...j}}; root.add(n); root.updateMatrixWorld(true); return n; };
+  const REST = [0.5, 0.5, -0.5, 0.5];
+  const door = mk('door_hinge', [345, 400, 240], REST, {type: 'revolute', value: 0, axis: [0, 0, 1], lower: 0, upper: 2.4958});
+  const dInfo = jointInfo(door.userData), dRest = restOf(door, dInfo);
+  poseJoint(door, dRest, dInfo, 92);
+  const q = door.quaternion, want = [0.7069990634918213, -0.012340622022747993, 0.012340622022747993, 0.7069991230964661];
+  [q.x, q.y, q.z, q.w].every((v, i) => Math.abs(v - want[i]) < 1e-5) ? ok('a revolute joint at 92 degrees turns the node exactly like sand3d (rest rotation times the axis turn)') : fail(`door_hinge at 92: got ${[q.x, q.y, q.z, q.w].map((v) => v.toFixed(5))}, sand3d wrote ${want.map((v) => v.toFixed(5))}`);
+  poseJoint(door, dRest, dInfo, 0);
+  Math.abs(door.quaternion.angleTo(new THREE.Quaternion(...REST))) < 1e-9 ? ok('value 0 returns the node to its rest') : fail('value 0 does not return the node to its rest');
+  const drawer = mk('drawer_slide', [300, 775, -150], REST, {type: 'prismatic', value: 0, axis: [0, 1, 0], lower: 0, upper: 0.2});
+  const pInfo = jointInfo(drawer.userData), pRest = restOf(drawer, pInfo);
+  poseJoint(drawer, pRest, pInfo, 0.12);
+  Math.abs(drawer.position.x - 420) < 1e-3 && Math.abs(drawer.position.y - 775) < 1e-3 && Math.abs(drawer.position.z + 150) < 1e-3 ? ok('a prismatic joint at 0.12 m moves the node 120 mm along its axis in the parent frame (sand3d: x 300 -> 420)') : fail(`drawer_slide at 0.12 m: got ${drawer.position.toArray().map((v) => v.toFixed(2))}, sand3d wrote 420,775,-150`);
+  // a file exported with the joint already moved must give the same rest
+  const door2 = mk('door_hinge', [345, 400.0000152587891, 240.00001525878906], [0.7069990634918213, -0.012340622022747993, 0.012340622022747993, 0.7069991230964661], {type: 'revolute', value: (92 * Math.PI) / 180, axis: [0, 0, 1], lower: 0, upper: 2.4958});
+  const r2 = restOf(door2, jointInfo(door2.userData));
+  Math.abs(r2.quat.angleTo(new THREE.Quaternion(...REST))) < 1e-5 ? ok('a file exported at 92 degrees is brought back to its rest before posing') : fail('rest of a file exported with a moved joint is wrong');
+  const drawer2 = mk('drawer_slide', [420, 775, -150], REST, {type: 'prismatic', value: 0.12, axis: [0, 1, 0], lower: 0, upper: 0.2});
+  Math.abs(restOf(drawer2, jointInfo(drawer2.userData)).pos.x - 300) < 1e-3 ? ok('a prismatic file exported at 0.12 m is brought back to its rest') : fail('prismatic rest of a moved file is wrong');
+  const throws = (f) => { try { f(); return null; } catch (e) { return String(e.message); } };
+  const over = throws(() => poseJoint(door, dRest, dInfo, 150)), under = throws(() => poseJoint(drawer, pRest, pInfo, 0.3)), nan = throws(() => poseJoint(door, dRest, dInfo, NaN));
+  /outside its range 0\.00\.\.143\.00°/.test(over ?? '') && /outside its range/.test(under ?? '') && /not a number/.test(nan ?? '') ? ok('a value outside the range, or not a number, is an error naming the joint') : fail(`range errors missing: ${over} | ${under} | ${nan}`);
+  const spin = mk('drum_spin', [300, 400, 0], REST, {type: 'continuous', value: 0, axis: [0, 1, 0]});
+  throws(() => poseJoint(spin, restOf(spin, jointInfo(spin.userData)), jointInfo(spin.userData), 720)) === null ? ok('a continuous joint takes any angle') : fail('a continuous joint must not have a range');
+  jointInfo({}) === null && jointInfo(null) === null && /not supported/.test(throws(() => jointInfo({s3d_joint: {name: 'x', type: 'free', axis: [0, 0, 1]}})) ?? '') ? ok('a node that is not a joint is skipped, a joint kind that cannot be posed is an error') : fail('jointInfo must skip plain nodes and reject unsupported kinds');
 }
 
 console.log(fails ? `\n${fails} FAIL` : '\nALL OK');

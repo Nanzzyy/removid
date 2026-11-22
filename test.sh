@@ -50,6 +50,14 @@ step "emotion and style checks must FAIL when the code they guard is broken (mut
   && run_fail node scripts/check-logic.mjs; cp "$tmp/hu.bak" src/characters/humanoid.ts
   run node scripts/check-logic.mjs )
 
+step "GLB joint maths must FAIL when the rotation order or the prismatic axis is wrong (mutants)"
+( cd "$tmp/app" && cp src/lib/glb-joints.ts "$tmp/gj.bak" \
+  && sed -i 's/node.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(info.axis, v))/node.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(info.axis, v))/' src/lib/glb-joints.ts \
+  && run_fail node scripts/check-logic.mjs; cp "$tmp/gj.bak" src/lib/glb-joints.ts
+  sed -i 's/node.position.addScaledVector(info.axis.clone().applyQuaternion(rest.quat), v \/ unitMetres(node))/node.position.addScaledVector(info.axis.clone(), v \/ unitMetres(node))/' src/lib/glb-joints.ts \
+  && run_fail node scripts/check-logic.mjs; cp "$tmp/gj.bak" src/lib/glb-joints.ts
+  run node scripts/check-logic.mjs )
+
 step "numeric checks must FAIL on a broken scene (mutant)"
 ( cd "$tmp/app" && cp src/scenes/narrator.data.ts "$tmp/nd.bak" \
   && sed -i 's/anchor: {x: 0.7, y: 0.5}/anchor: {x: 0.5, y: 0.5}/' src/scenes/narrator.data.ts \
@@ -69,6 +77,13 @@ if [ "$full" -eq 1 ]; then
   ( cd "$tmp/app" && run node scripts/character-sheet.mjs --all )
   step "emotion sheets: every emotion of the table is drawn and reads differently from neutral (a humanoid and a mascot)"
   ( cd "$tmp/app" && run node scripts/character-sheet.mjs ayu bolo --emotions )
+  step "GLB prop (sand3d fixture): the sheet renders, the lid moves, an out-of-range value is refused; a dead joint must FAIL (mutant)"
+  ( cd "$tmp/app" && mkdir -p public/props && cp "$root/tests/fixtures/props/gift_box.glb" public/props/gift_box.glb \
+    && run node scripts/prop-sheet.mjs props/gift_box.glb --joint lid_hinge --values 0,55,110 \
+    && run_fail node scripts/prop-sheet.mjs props/gift_box.glb --joint lid_hinge --values 120 \
+    && cp src/lib/glb-joints.ts "$tmp/gj.bak" \
+    && sed -i 's/  node.updateMatrix();/  node.quaternion.copy(rest.quat); node.position.copy(rest.pos); node.updateMatrix();/' src/lib/glb-joints.ts \
+    && run_fail node scripts/prop-sheet.mjs props/gift_box.glb --joint lid_hinge --values 0,55,110; cp "$tmp/gj.bak" src/lib/glb-joints.ts )
   step "stills at global times"
   ( cd "$tmp/app" && run node scripts/stills.mjs 1.0,5.0 --id UiDemo && run test -s out/stills/UiDemo-t5.00.png )
   step "render both scenes at 60 fps and probe"

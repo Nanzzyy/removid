@@ -10,7 +10,8 @@
     "check:cursor": "node scripts/check-click-stills.mjs UiDemo",
     "envelope": "node scripts/make-envelope.mjs",
     "stills": "node scripts/stills.mjs",
-    "character": "node scripts/character-sheet.mjs"
+    "character": "node scripts/character-sheet.mjs",
+    "prop": "node scripts/prop-sheet.mjs"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.541",
